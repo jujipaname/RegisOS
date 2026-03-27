@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>PLANNING EXPOS V5</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --accent: #6c5ce7;
+    --blue-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --border: #dfe6e9;
+    --ferie-global-bg: rgba(214, 48, 49, 0.06);
+    --ferie-local-bg: rgba(253, 203, 110, 0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; color: #2d3436; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .header { background: var(--blue-gradient); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .header h1 { font-size: 16px; font-weight: 700; text-transform: uppercase; }
+  .header-right { display: flex; gap: 8px; align-items: center; }
+
+  .toolbar { display: flex; gap: 15px; align-items: center; background: white; padding: 10px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; }
+  .btn { border: none; border-radius: 4px; padding: 0 15px; font-size: 11px; cursor: pointer; font-weight: 700; transition: 0.2s; height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-ics { background: #00b894; color: white; }
+  .btn-today { background: #f1f2f6; color: #2d3436; }
+  .btn-danger { background: #d63031; color: white; }
+  .btn-warning { background: #fdcb6e; color: #2d3436; }
+  .btn-active { background: #e17055; color: white; }
+  .btn-success { background: #00b894; color: white; }
+  .btn-info { background: #0984e3; color: white; }
+
+  .zoom-control { display: flex; align-items: center; gap: 6px; flex-direction: column; align-items: flex-start; }
+  .zoom-control input[type=range] { width: 120px; }
+  .zoom-label { font-size: 10px; font-weight: 700; color: #636e72; min-width: 40px; }
+
+  .filter-group { display: flex; flex-direction: column; gap: 3px; }
+  .filter-group label { font-size: 9px; font-weight: 800; color: #636e72; text-transform: uppercase; }
+  .filter-group select { border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-size: 12px; height: 32px; min-width: 100px; max-width: 140px; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-group select:disabled { background: #f1f2f6; color: #b2bec3; cursor: not-allowed; }
+
+  .container { flex: 1; overflow: auto; position: relative; background: white; scroll-behavior: smooth; }
+  .gantt-wrapper { position: relative; }
+  .sticky-header { position: sticky; top: 0; z-index: 20; background: white; border-bottom: 2px solid var(--accent); }
+  .month-header-bar { display: flex; background: white; height: 35px; border-bottom: 1px solid #f1f2f6; }
+  .month-block { display: flex; align-items: flex-end; justify-content: flex-start; padding: 4px 12px; font-size: 10px; font-weight: bold; color: var(--accent); text-transform: uppercase; overflow: hidden; flex-shrink: 0; }
+  .days-header-bar { display: flex; height: 40px; background: white; }
+  .day-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid #f1f2f6; flex-shrink: 0; }
+  .day-cell b { font-size: 11px; }
+  .day-cell small { font-size: 9px; }
+  .day-cell.weekend { background: #fffaf0; color: #e17055; }
+  .day-cell.ferie { background: #ffe0e0 !important; color: #d63031 !important; }
+  .day-cell.today-col { background: var(--accent) !important; color: white !important; }
+
+  .workload-header-bar { display: none; height: 40px; background: #f8f9fa; border-bottom: 1px solid #dfe6e9; }
+  .workload-header-bar.visible { display: flex; }
+  .workload-cell { display: flex; align-items: flex-end; justify-content: center; border-right: 1px solid #f1f2f6; flex-shrink: 0; font-size: 10px; font-weight: 800; position: relative; overflow: hidden; }
+  .workload-fill { position: absolute; bottom: 0; left: 0; right: 0; opacity: 0.7; z-index: 0; pointer-events: none; transition: height 0.3s; }
+  .workload-text { position: relative; z-index: 1; padding-bottom: 3px; color: #2d3436; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); font-size: 9px; }
+
+  .gantt-body { position: relative; }
+  .grid-col { position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 0; border-right: 1px solid #f1f2f6; }
+  .grid-col.weekend { background: rgba(255, 224, 224, 0.3); border-right: 1px solid #fdeaea; }
+  .grid-col.ferie { background: var(--ferie-global-bg); border-right: 1px solid #ffcccc; }
+
+  .today-line { position: absolute; top: 0; bottom: 0; border-left: 2px dashed var(--accent); z-index: 12; pointer-events: none; }
+  .group-header { background: #f8f9fa; padding: 8px 0; font-size: 12px; font-weight: 800; color: #2d3436; cursor: pointer; border-bottom: 1px solid var(--border); position: relative; z-index: 15; text-transform: uppercase; }
+  .sticky-text { position: sticky; left: 16px; display: inline-flex; align-items: center; gap: 8px; z-index: 20; }
+  .group-count { background: var(--accent); color: white; border-radius: 10px; padding: 1px 8px; font-size: 9px; }
+
+  .group-content { position: relative; }
+  .ferie-local-bg { position: absolute; top: 0; bottom: 0; background: var(--ferie-local-bg); border-right: 1px solid #f39c12; pointer-events: auto; z-index: 1; }
+
+  .expo-row { position: relative; height: 38px; border-bottom: 1px solid rgba(0,0,0,0.03); }
+  .expo-label { position: sticky; left: 16px; display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; color: #2d3436; z-index: 10; white-space: nowrap; max-width: 250px; overflow: hidden; text-overflow: ellipsis; pointer-events: none; background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 4px; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
+  .bar { position: absolute; border-radius: 5px; cursor: pointer; display: flex; align-items: center; padding: 0 10px; font-size: 10px; font-weight: 600; color: white; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: box-shadow 0.2s, transform 0.1s; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.1); gap: 6px; }
+  .bar:hover { transform: translateY(-1px); box-shadow: 0 3px 12px rgba(0,0,0,0.25); z-index: 15; }
+  .bar-montage { top: 4px; height: 14px; }
+  .bar-expo { top: 20px; height: 14px; }
+  .svc-badge { background: rgba(0,0,0,0.15); padding: 1px 4px; border-radius: 3px; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+  .bar-expo .svc-badge { background: rgba(255,255,255,0.4); color: #2d3436; }
+
+  .tooltip { display: none; position: fixed; background: rgba(45,52,54,0.98); color: white; border: 1px solid #636e72; border-radius: 6px; padding: 12px; z-index: 9999; box-shadow: 0 10px 25px rgba(0,0,0,0.4); max-width: 320px; font-size: 11px; line-height: 1.6; }
+  .tooltip.visible { display: block; pointer-events: none; }
+  .tooltip b.title { display: block; margin-bottom: 8px; border-bottom: 1px solid #555; padding-bottom: 4px; font-size: 13px; }
+
+  .edit-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+  .edit-overlay.open { display: flex; }
+  .edit-panel { background: white; border-radius: 10px; padding: 24px; width: 620px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+  .edit-panel h2 { font-size: 16px; font-weight: 800; color: var(--accent); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .edit-row { display: flex; flex-direction: column; gap: 5px; }
+  .edit-row.full { grid-column: 1 / -1; }
+  .edit-row label { font-size: 10px; font-weight: 800; color: #636e72; text-transform: uppercase; }
+  .edit-row input, .edit-row select { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; width: 100%; }
+  .edit-row input:focus, .edit-row select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,92,231,0.2); }
+  .checkbox-group { display: flex; gap: 16px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .checkbox-group label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; text-transform: none; font-weight: 600; color: #2d3436; background: #f1f2f6; padding: 4px 8px; border-radius: 4px; }
+  .edit-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 16px; }
+  .color-picker-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin-top: 4px; }
+  .color-swatch { width: 100%; aspect-ratio: 1; border-radius: 4px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; position: relative; }
+  .color-swatch:hover { transform: scale(1.10); z-index: 2; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+  .color-swatch.selected { border-color: #2d3436; box-shadow: 0 0 0 2px white, 0 0 0 4px #2d3436; z-index: 3; transform: scale(1.05); }
+
+  .no-data { text-align: center; padding: 60px 20px; color: #b2bec3; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>?? PLANNING EXPOSITIONS</h1>
+  <div class="header-right">
+    <button class="btn btn-ics" onclick="exportICS()">?? Export ICS</button>
+  </div>
+</div>
+
+<div class="toolbar">
+  <button class="btn btn-today" id="btn-today" onclick="goToday()">?? AUJOURD'HUI</button>
+
+  <div class="zoom-control">
+    <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:2px;">
+      <span class="zoom-label" style="font-size:8px;">ZOOM</span>
+      <span class="zoom-label" id="zoom-label" style="font-size:8px;">14px</span>
+    </div>
+    <input type="range" id="zoom-slider" min="3" max="40" value="14" oninput="setZoom(this.value)">
+  </div>
+
+  <div class="filter-group">
+    <label>Lieu</label>
+    <select id="filter-lieu" onchange="saveFilters(); render();"><option value="">Tous</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Service</label>
+    <select id="filter-service" onchange="updateAgentFilter(); saveFilters(); render();"><option value="">Tous</option></select>
+  </div>
+  <div class="filter-group">
+    <label>R�gisseur / Agent</label>
+    <select id="filter-agent" disabled onchange="saveFilters(); render();">
+      <option value="">-- Service requis --</option>
+    </select>
+  </div>
+
+  <button class="btn btn-info"    id="btn-workload"  onclick="toggleWorkload()">?? CHARGE TRAVAIL</button>
+  <button class="btn btn-warning" id="btn-hide-past" onclick="toggleHidePast()">?? MASQUER TERMIN�ES</button>
+  <button class="btn btn-success" onclick="openCreate()">? NOUVELLE EXPO</button>
+</div>
+
+<div class="container" id="container">
+  <div id="gantt-root"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<div class="edit-overlay" id="edit-overlay" onclick="if(event.target===this) closeEdit()">
+  <div class="edit-panel" id="edit-panel"></div>
+</div>
+
+<script>
+// ==================== CONFIG & PALETTE ====================
+const COLOR_PALETTE = [
+  { name: 'Rouge',     dark: '#d63031', light: '#ff7675' },
+  { name: 'Bordeaux',  dark: '#b71540', light: '#e55039' },
+  { name: 'Corail',    dark: '#e15f41', light: '#f78fb3' },
+  { name: 'Orange',    dark: '#e17055', light: '#fab1a0' },
+  { name: 'Jaune',     dark: '#f39c12', light: '#ffeaa7' },
+  { name: 'Olive',     dark: '#6ab04c', light: '#badc58' },
+  { name: 'Vert',      dark: '#00cec9', light: '#81ecec' },
+  { name: 'Emeraude',  dark: '#27ae60', light: '#2ecc71' },
+  { name: 'Turquoise', dark: '#00b894', light: '#55efc4' },
+  { name: 'Cyan',      dark: '#16a085', light: '#1abc9c' },
+  { name: 'Bleu',      dark: '#0984e3', light: '#74b9ff' },
+  { name: 'Ocean',     dark: '#2980b9', light: '#3498db' },
+  { name: 'Indigo',    dark: '#4834d4', light: '#686de0' },
+  { name: 'Violet',    dark: '#6c5ce7', light: '#a29bfe' },
+  { name: 'Amethyste', dark: '#8e44ad', light: '#9b59b6' },
+  { name: 'Rose',      dark: '#e84393', light: '#fd79a8' },
+  { name: 'Prune',     dark: '#833471', light: '#b53471' },
+  { name: 'Gris',      dark: '#636e72', light: '#b2bec3' }
+];
+
+const JOURS = ['D','L','M','M','J','V','S'];
+
+// Services fixes � noms exacts de la ChoiceList Grist
+const SERVICES_LIST = ['SPAV', 'AMT', 'AMT lumi�re', 'R�gie des salles'];
+
+// Mapping service ? Column ID exact Grist (sans accent, v�rifi� dans Column Options)
+const SERVICE_TO_COL = {
+  'SPAV':             'Regisseur_AV',
+  'AMT':              'Regisseur_AMT',
+  'AMT lumi�re':      'AMT_Lumiere',      // Column ID sans accent
+  'R�gie des salles': 'Regis_des_salles'
+};
+
+function getColorByCode(code) {
+  if (!code) return COLOR_PALETTE[0];
+  return COLOR_PALETTE.find(c => c.dark.toLowerCase() === code.toLowerCase())
+    || { name: 'Custom', dark: code, light: code };
+}
+
+// ==================== STATE ====================
+let expos = [], lieuxObj = {}, personnel = {}, feries = [];
+// Service(s) assign�(s) � chaque agent (colonne Personnel.$Service)
+let personnelServices = {};
+let allServicesList = new Set(SERVICES_LIST);
+let dayWidth = 14;
+let collapsedGroups = JSON.parse(localStorage.getItem('gantt_collapsed') || '{}');
+if (collapsedGroups['PRET_GROUP'] === undefined) collapsedGroups['PRET_GROUP'] = true;
+
+let hidePast     = localStorage.getItem('gantt_hidePast')     === 'true';
+let showWorkload = localStorage.getItem('gantt_showWorkload') === 'true';
+let rangeStart   = null;
+
+const TABLE_EXPOS     = 'Liste_des_Expo';
+const TABLE_LIEUX     = 'Lieux_constellation';
+const TABLE_PERSONNEL = 'Personnel';
+const TABLE_FERIES    = 'Jours_feriers';
+
+// ==================== DATA LOADING ====================
+function fixDate(val) {
+  if (!val) return null;
+  let d = new Date(val > 10000000000 ? val : val * 1000);
+  if (isNaN(d.getTime())) d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function fmtInputDate(val) {
+  const d = fixDate(val);
+  return d ? d.toISOString().split('T')[0] : '';
+}
+
+function rowsFromTable(t) {
+  const ids = t.id || [], cols = Object.keys(t).filter(k => k !== 'id');
+  return ids.map((id, i) => {
+    const r = { id };
+    cols.forEach(c => r[c] = t[c][i]);
+    return r;
+  });
+}
+
+function parsePays(val) {
+  if (!val) return null;
+  if (Array.isArray(val)) return val[0] === 'L' ? val.slice(1) : val;
+  return val;
+}
+
+function getServices(expo) {
+  if (!expo.Service) return [];
+  if (Array.isArray(expo.Service))
+    return expo.Service[0] === 'L' ? expo.Service.slice(1) : expo.Service;
+  try {
+    const parsed = JSON.parse(expo.Service.replace(/'/g, '"'));
+    if (Array.isArray(parsed)) return parsed[0] === 'L' ? parsed.slice(1) : parsed;
+  } catch(e) {}
+  return [expo.Service];
+}
+
+function parseServicesField(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val[0] === 'L' ? val.slice(1) : val;
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return [];
+    try {
+      const parsed = JSON.parse(s.replace(/'/g, '"'));
+      if (Array.isArray(parsed))
+        return parsed[0] === 'L' ? parsed.slice(1) : parsed;
+    } catch(e) {}
+    return [s];
+  }
+  return [val];
+}
+
+// Normalisation "tol�rante" pour comparer SPAV/AMT/AMT lumi�re/R�gie des salles.
+// IMPORTANT : on ne supprime pas les accents c�t� affichage, uniquement pour la comparaison.
+function normalizeServiceForMatch(s) {
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\uFFFD/g, 'e')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+async function loadData() {
+  try {
+    personnel = {};
+    personnelServices = {};
+    try {
+      const tLieux = await grist.docApi.fetchTable(TABLE_LIEUX);
+      rowsFromTable(tLieux).forEach(r => {
+        lieuxObj[r.id] = { nom: r.Nom || r.Musee || ('Lieu #' + r.id), pays: r.Pays };
+      });
+    } catch(e) {}
+
+    try {
+      const tPers = await grist.docApi.fetchTable(TABLE_PERSONNEL);
+      rowsFromTable(tPers).forEach(r => {
+        const nom = `${r.prenom || r.Prenom || ''} ${r.Nom || r.nom || ''}`.trim();
+        personnel[r.id] = nom || `Agent #${r.id}`;
+
+        // Filter dropdowns in edit panel:
+        // Column name in Grist is expected to be "$Service", but we also accept "Service".
+        const svcVal = r['$Service'] ?? r.Service ?? r.service ?? null;
+        personnelServices[r.id] = parseServicesField(svcVal)
+          .filter(Boolean);
+      });
+    } catch(e) {}
+
+    try {
+      const tFeries = await grist.docApi.fetchTable(TABLE_FERIES);
+      const dCol = Object.keys(tFeries).find(k => k.toLowerCase().includes('date')) || 'Date';
+      if (tFeries[dCol]) {
+        feries = tFeries[dCol].map((v, i) => ({
+          d:    fixDate(v),
+          pays: parsePays(tFeries['Pays'] ? tFeries['Pays'][i] : null),
+          nom:  tFeries['Nom']  ? tFeries['Nom'][i]  : 'Jour F�ri�'
+        })).filter(f => f.d);
+      }
+    } catch(e) {}
+
+    const tExpos = await grist.docApi.fetchTable(TABLE_EXPOS);
+    expos = rowsFromTable(tExpos);
+
+    // R�initialise aux services fixes
+    allServicesList = new Set(SERVICES_LIST);
+
+    let colorIdx = 0;
+    const updates = [];
+
+    expos.forEach(expo => {
+      if (!expo.CouleurEXPO || String(expo.CouleurEXPO).trim() === '') {
+        const hex = COLOR_PALETTE[colorIdx % COLOR_PALETTE.length].dark;
+        expo.CouleurEXPO = hex;
+        colorIdx++;
+        updates.push(['UpdateRecord', TABLE_EXPOS, expo.id, { CouleurEXPO: hex }]);
+      } else {
+        const idx = COLOR_PALETTE.findIndex(c => c.dark === expo.CouleurEXPO);
+        if (idx !== -1) colorIdx = idx + 1;
+      }
+    });
+
+    if (updates.length > 0) { await grist.docApi.applyUserActions(updates); return; }
+
+    populateFilters();
+    applyStoredFilters();
+    render();
+    setTimeout(() => goToday(), 100);
+  } catch(e) {
+    document.getElementById('gantt-root').innerHTML =
+      `<div class="no-data"><h2>?? Erreur</h2><p>${e.message}</p></div>`;
+  }
+}
+
+function getLieuName(id)   { return (id && lieuxObj[id]) ? lieuxObj[id].nom : 'Non d�fini'; }
+function getPersonName(id) { return id ? (personnel[id] || `Agent #${id}`) : ' '; }
+
+// ==================== CASCADE FILTERS ====================
+function getColForService(svcName) {
+  if (!svcName) return null;
+  return SERVICE_TO_COL[svcName] || null;
+}
+
+function populateFilters() {
+  const activeIds = [...new Set(expos.map(e => e.Musee).filter(Boolean))];
+  document.getElementById('filter-lieu').innerHTML = '<option value="">Tous</option>'
+    + activeIds.map(id => `<option value="${id}">${getLieuName(id)}</option>`)
+               .sort((a, b) => a.localeCompare(b)).join('');
+
+  const selSvc = document.getElementById('filter-service');
+  const oldSvc = selSvc.value;
+  selSvc.innerHTML = '<option value="">Tous</option>'
+    + SERVICES_LIST.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (SERVICES_LIST.includes(oldSvc)) selSvc.value = oldSvc;
+
+  updateAgentFilter();
+
+  document.getElementById('btn-hide-past').classList.toggle('btn-active', hidePast);
+  document.getElementById('btn-hide-past').textContent =
+    hidePast ? '?? TERMIN�ES MASQU�ES ?' : '?? MASQUER TERMIN�ES';
+  document.getElementById('btn-workload').classList.toggle('btn-active', showWorkload);
+}
+
+function updateAgentFilter() {
+  const svc      = document.getElementById('filter-service').value;
+  const selAgent = document.getElementById('filter-agent');
+  const oldAgent = selAgent.value;
+
+  if (!svc) {
+    selAgent.innerHTML = '<option value="">-- Service requis --</option>';
+    selAgent.disabled = true;
+    return;
+  }
+  const colName = getColForService(svc);
+  if (!colName) {
+    selAgent.innerHTML = '<option value="">-- Aucun champ --</option>';
+    selAgent.disabled = true;
+    return;
+  }
+  selAgent.disabled = false;
+  const agentIds = [...new Set(expos.map(e => e[colName]).filter(Boolean))];
+  selAgent.innerHTML = '<option value="">Tous</option>'
+    + agentIds.map(id => `<option value="${id}">${getPersonName(id)}</option>`)
+              .sort((a, b) => a.localeCompare(b)).join('');
+  if (agentIds.includes(Number(oldAgent)) || agentIds.includes(oldAgent))
+    selAgent.value = oldAgent;
+}
+
+function saveFilters() {
+  localStorage.setItem('gantt_filterLieu',    document.getElementById('filter-lieu').value);
+  localStorage.setItem('gantt_filterService', document.getElementById('filter-service').value);
+  localStorage.setItem('gantt_filterAgent',   document.getElementById('filter-agent').value);
+}
+
+function applyStoredFilters() {
+  document.getElementById('filter-lieu').value    = localStorage.getItem('gantt_filterLieu')    || '';
+  document.getElementById('filter-service').value = localStorage.getItem('gantt_filterService') || '';
+  updateAgentFilter();
+  const storedAgent = localStorage.getItem('gantt_filterAgent');
+  if (storedAgent && !document.getElementById('filter-agent').disabled)
+    document.getElementById('filter-agent').value = storedAgent;
+}
+
+// ==================== LOGIQUE "TERMIN�E" ====================
+function isExpoTerminee(expo) {
+  const now = new Date();
+  const f   = fixDate(expo.finissage);
+  const fin = getFinDemontage(expo);
+  if (!f) return false;
+  return f < now && fin < now;
+}
+
+function hasAssignedAgent(expo, colName) {
+  if (!colName) return false;
+  const v = expo ? expo[colName] : null;
+  if (v === null || v === undefined) return false;
+  const s = String(v).trim();
+  return s !== '' && s !== '0' && s.toLowerCase() !== 'false';
+}
+
+function getFilteredExpos() {
+  const lFil   = document.getElementById('filter-lieu').value;
+  const svcFil = document.getElementById('filter-service').value;
+  const agFil  = document.getElementById('filter-agent').value;
+
+  return expos.filter(e => {
+    if (lFil && String(e.Musee) !== lFil) return false;
+    if (svcFil) {
+      const col = getColForService(svcFil);
+      const hasSvcTag = getServices(e).includes(svcFil);
+      const hasRole   = hasAssignedAgent(e, col);
+      if (!hasSvcTag && !hasRole) return false;
+      if (agFil) {
+        if (col && String(e[col]) !== String(agFil)) return false;
+      }
+    }
+    if (hidePast && e.A_Affiche === false) return false;
+    return true;
+  });
+}
+
+// ==================== TOGGLE MASQUER TERMIN�ES ====================
+async function toggleHidePast() {
+  hidePast = !hidePast;
+  localStorage.setItem('gantt_hidePast', hidePast);
+
+  const updates = expos.map(expo => {
+    const newVal = !isExpoTerminee(expo);
+    expo.A_Affiche = newVal;
+    return ['UpdateRecord', TABLE_EXPOS, expo.id, { A_Affiche: newVal }];
+  });
+
+  try {
+    await grist.docApi.applyUserActions(updates);
+  } catch(e) {
+    console.warn('Impossible de mettre � jour A_Affiche :', e.message);
+  }
+
+  populateFilters();
+  render();
+}
+
+function toggleWorkload() {
+  showWorkload = !showWorkload;
+  localStorage.setItem('gantt_showWorkload', showWorkload);
+  populateFilters();
+  render();
+}
+
+// ==================== DATE HELPERS ====================
+function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+
+function isFerieGlobal(d) {
+  return feries.some(f => {
+    if (f.d.toDateString() !== d.toDateString()) return false;
+    return !f.pays || f.pays === 0 ||
+           (Array.isArray(f.pays) && f.pays.length === 0) ||
+           String(f.pays).trim() === '';
+  });
+}
+
+function getFerieForLieu(d, lieuId) {
+  if (!lieuId || lieuId === 'PRET_GROUP') return null;
+  const lieuPays = lieuxObj[lieuId] ? lieuxObj[lieuId].pays : null;
+  if (!lieuPays) return null;
+  return feries.find(f => {
+    if (f.d.toDateString() !== d.toDateString()) return false;
+    if (!f.pays || f.pays === 0 ||
+        (Array.isArray(f.pays) && f.pays.length === 0) ||
+        String(f.pays).trim() === '') return false;
+    if (Array.isArray(f.pays))
+      return f.pays.includes(Number(lieuPays)) || f.pays.includes(String(lieuPays));
+    return String(f.pays) === String(lieuPays);
+  });
+}
+
+function fmtDate(d) {
+  if (!d) return ' ';
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function getMontageRange(expo) {
+  const v = fixDate(expo.vernissage), md = fixDate(expo.debut_date_montage);
+  let s = md, e = v;
+  if (!s && v) { s = new Date(v); s.setMonth(s.getMonth() - 1); }
+  if (!e && s) { e = new Date(s); e.setMonth(e.getMonth() + 1); }
+  return (s && e) ? { start: s, end: e } : null;
+}
+
+function getDemontageRange(expo) {
+  const f = fixDate(expo.finissage), mf = fixDate(expo.fin_date_montage);
+  let s = f, e = mf;
+  if (!s && e) { s = new Date(e); s.setDate(s.getDate() - 7); }
+  if (!e && s) { e = new Date(s); e.setDate(e.getDate() + 7); }
+  return (s && e) ? { start: s, end: e } : null;
+}
+
+function getFinDemontage(expo) {
+  const d = getDemontageRange(expo);
+  return d ? d.end : (fixDate(expo.finissage)
+    ? new Date(fixDate(expo.finissage).getTime() + 7 * 86400000)
+    : new Date(0));
+}
+
+// ==================== RENDER ====================
+function render() {
+  const root     = document.getElementById('gantt-root');
+  const filtered = getFilteredExpos();
+  if (filtered.length === 0)
+    return root.innerHTML = '<div class="no-data"><h2>?? AUCUNE EXPOSITION</h2></div>';
+
+  let minD = Infinity, maxD = -Infinity;
+  filtered.forEach(e => {
+    [getMontageRange(e)?.start, getMontageRange(e)?.end,
+     getDemontageRange(e)?.start, getDemontageRange(e)?.end,
+     fixDate(e.vernissage), fixDate(e.finissage)].forEach(dt => {
+      if (dt) { if (dt < minD) minD = dt; if (dt > maxD) maxD = dt; }
+    });
+  });
+
+  rangeStart = new Date(minD); rangeStart.setDate(rangeStart.getDate() - 14);
+  const rangeEnd   = new Date(maxD); rangeEnd.setDate(rangeEnd.getDate() + 30);
+  const totalDays  = daysBetween(rangeStart, rangeEnd);
+  const totalWidth = totalDays * dayWidth;
+
+  const days = [];
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(rangeStart.getTime() + i * 86400000);
+    days.push({
+      d,
+      isWE:        d.getDay() === 0 || d.getDay() === 6,
+      isGlobalFer: isFerieGlobal(d),
+      isToday:     daysBetween(d, new Date()) === 0,
+      i
+    });
+  }
+
+  const workloadCounts = new Array(totalDays).fill(0);
+  if (showWorkload) {
+    filtered.forEach(expo => {
+      if (expo.Pret === true || expo.Pret === 'true') return;
+      const m = getMontageRange(expo), dem = getDemontageRange(expo);
+      days.forEach(({ d, i }) => {
+        const t = d.getTime();
+        if (m   && t >= m.start.getTime()   && t <= m.end.getTime())   workloadCounts[i]++;
+        if (dem && t >= dem.start.getTime() && t <= dem.end.getTime()) workloadCounts[i]++;
+      });
+    });
+  }
+  const maxWorkload = Math.max(...workloadCounts, 1);
+
+  const groups = {};
+  filtered.forEach(e => {
+    let lId  = e.Musee || 0;
+    const isP = e.Pret === true || e.Pret === 'true';
+    if (isP) lId = 'PRET_GROUP';
+    if (!groups[lId]) groups[lId] = { name: isP ? 'PRET' : getLieuName(lId), expos: [], isPret: isP };
+    groups[lId].expos.push(e);
+  });
+  Object.values(groups).forEach(g => {
+    g.expos.sort((a, b) =>
+      (fixDate(a.vernissage) || new Date(0)) - (fixDate(b.vernissage) || new Date(0)));
+  });
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    if (a === 'PRET_GROUP') return 1;
+    if (b === 'PRET_GROUP') return -1;
+    return groups[a].name.localeCompare(groups[b].name);
+  });
+
+  let html = `<div class="gantt-wrapper"><div class="sticky-header" style="width:${totalWidth}px;">`;
+
+  html += `<div class="month-header-bar">`;
+  let cursor = new Date(rangeStart);
+  while (cursor < rangeEnd) {
+    const nextM = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    const mEnd  = nextM < rangeEnd ? nextM : rangeEnd;
+    const w     = daysBetween(cursor, mEnd) * dayWidth;
+    html += `<div class="month-block" style="width:${w}px; min-width:${w}px;">
+      ${w > 60 ? cursor.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+               : (w > 30 ? cursor.toLocaleDateString('fr-FR', { month: 'short' }) : '')}
+    </div>`;
+    cursor = nextM;
+  }
+  html += `</div>`;
+
+  html += `<div class="days-header-bar">`;
+  days.forEach(({ d, isWE, isGlobalFer, isToday }) => {
+    let cls = 'day-cell';
+    if (isToday)          cls += ' today-col';
+    else if (isGlobalFer) cls += ' ferie';
+    else if (isWE)        cls += ' weekend';
+    const lbl = dayWidth >= 16
+      ? `<b>${d.getDate()}</b><small>${JOURS[d.getDay()]}</small>`
+      : (dayWidth >= 8 && d.getDate() % 5 === 1 ? `<b>${d.getDate()}</b>` : '');
+    html += `<div class="${cls}" style="width:${dayWidth}px; min-width:${dayWidth}px;">${lbl}</div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="workload-header-bar ${showWorkload ? 'visible' : ''}">`;
+  days.forEach(({ i }) => {
+    const count = workloadCounts[i];
+    const pct   = count > 0 ? Math.round((count / maxWorkload) * 100) : 0;
+    const bg    = count === 0 ? 'transparent'
+                : (count >= 3 ? '#d63031' : count >= 2 ? '#e17055' : '#00b894');
+    html += `<div class="workload-cell" style="width:${dayWidth}px; min-width:${dayWidth}px;">
+      ${count > 0
+        ? `<div class="workload-fill" style="height:${pct}%; background:${bg};"></div>
+           ${dayWidth >= 12 ? `<span class="workload-text">${count}</span>` : ''}`
+        : ''}
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  html += `<div class="gantt-body" style="width:${totalWidth}px;">`;
+
+  days.forEach(({ isWE, isGlobalFer, i }) => {
+    if (isGlobalFer || isWE)
+      html += `<div class="grid-col ${isGlobalFer ? 'ferie' : 'weekend'}"
+        style="left:${i * dayWidth}px; width:${dayWidth}px;"></div>`;
+  });
+
+  const todayOff = daysBetween(rangeStart, new Date());
+  if (todayOff >= 0 && todayOff <= totalDays)
+    html += `<div class="today-line" style="left:${todayOff * dayWidth + dayWidth / 2}px;"></div>`;
+
+  for (const gKey of sortedKeys) {
+    const group = groups[gKey];
+    const col   = collapsedGroups[gKey];
+
+    html += `<div class="group-header" onclick="toggleGroup('${gKey}')">
+      <div class="sticky-text">
+        ${col ? '?' : '?'} ${group.isPret ? '??' : '???'} ${group.name}
+        <span class="group-count">${group.expos.length}</span>
+      </div>
+    </div>`;
+
+    if (!col) {
+      html += `<div class="group-content">`;
+
+      days.forEach(({ d, i }) => {
+        const lf = getFerieForLieu(d, gKey);
+        if (lf)
+          html += `<div class="ferie-local-bg"
+            style="left:${i * dayWidth}px; width:${dayWidth}px;"
+            title="${lf.nom || 'F�ri� local'}"></div>`;
+      });
+
+      group.expos.forEach(expo => {
+        const color      = getColorByCode(expo.CouleurEXPO);
+        const m          = getMontageRange(expo);
+        const dem        = getDemontageRange(expo);
+        const v          = fixDate(expo.vernissage);
+        const f          = fixDate(expo.finissage);
+        const svcs       = getServices(expo);
+        const badgesHtml = svcs.map(s => `<span class="svc-badge">${s}</span>`).join('');
+
+        html += `<div class="expo-row">
+          <div class="expo-label">${expo.Nom_de_l_exposition || 'Sans nom'}</div>`;
+
+        if (!group.isPret) {
+          if (m) {
+            const lx = daysBetween(rangeStart, m.start) * dayWidth;
+            const wx = Math.max(daysBetween(m.start, m.end) * dayWidth, dayWidth);
+            html += `<div class="bar bar-montage"
+              style="left:${lx}px; width:${wx}px; background:${color.dark};"
+              onmouseenter="showTooltip(event,${expo.id})" onmouseleave="hideTooltip()"
+              onclick="openEdit(${expo.id})">?? Montage ${badgesHtml}</div>`;
+          }
+          if (dem) {
+            const lx = daysBetween(rangeStart, dem.start) * dayWidth;
+            const wx = Math.max(daysBetween(dem.start, dem.end) * dayWidth, dayWidth);
+            html += `<div class="bar bar-montage"
+              style="left:${lx}px; width:${wx}px; background:${color.dark};"
+              onmouseenter="showTooltip(event,${expo.id})" onmouseleave="hideTooltip()"
+              onclick="openEdit(${expo.id})">?? D�montage ${badgesHtml}</div>`;
+          }
+        }
+        if (v && f) {
+          const lx = daysBetween(rangeStart, v) * dayWidth;
+          const wx = Math.max(daysBetween(v, f) * dayWidth, dayWidth);
+          html += `<div class="bar bar-expo"
+            style="left:${lx}px; width:${wx}px; background:${color.light}; color:#2d3436;"
+            onmouseenter="showTooltip(event,${expo.id})" onmouseleave="hideTooltip()"
+            onclick="openEdit(${expo.id})">
+            ${group.isPret ? '?? Pr�t' : '?? ' + (expo.Nom_de_l_exposition || 'Expo')}
+            ${badgesHtml}</div>`;
+        }
+        html += `</div>`;
+      });
+
+      html += `</div>`;
+    }
+  }
+
+  html += `</div></div>`;
+  root.innerHTML = html;
+}
+
+function toggleGroup(id) {
+  collapsedGroups[id] = !collapsedGroups[id];
+  localStorage.setItem('gantt_collapsed', JSON.stringify(collapsedGroups));
+  render();
+}
+
+function setZoom(val) {
+  dayWidth = parseInt(val);
+  document.getElementById('zoom-label').textContent = dayWidth + 'px';
+  render();
+}
+
+function goToday() {
+  if (!rangeStart) return;
+  const cont = document.getElementById('container');
+  cont.scrollTo({
+    left: Math.max(0, daysBetween(rangeStart, new Date()) * dayWidth - cont.clientWidth / 2),
+    behavior: 'smooth'
+  });
+}
+
+// ==================== TOOLTIP ====================
+function showTooltip(e, id) {
+  const expo = expos.find(x => x.id === id);
+  if (!expo) return;
+  const color = getColorByCode(expo.CouleurEXPO).light;
+  const m    = getMontageRange(expo), dem = getDemontageRange(expo);
+  const v    = fixDate(expo.vernissage), f  = fixDate(expo.finissage);
+  const svcs = getServices(expo).join(', ');
+
+  let equipeHtml = '';
+  if (expo.Regisseur_AV)     equipeHtml += `<div><b>?? SPAV :</b> ${getPersonName(expo.Regisseur_AV)}</div>`;
+  if (expo.Regisseur_AMT)    equipeHtml += `<div><b>?? AMT :</b> ${getPersonName(expo.Regisseur_AMT)}</div>`;
+  if (expo.AMT_Lumiere)      equipeHtml += `<div><b>?? Lumi�re :</b> ${getPersonName(expo.AMT_Lumiere)}</div>`;
+  if (expo.Regis_des_salles) equipeHtml += `<div><b>?? Salles :</b> ${getPersonName(expo.Regis_des_salles)}</div>`;
+  if (!equipeHtml) equipeHtml = `<div><i>Aucun agent assign�</i></div>`;
+
+  const tt = document.getElementById('tooltip');
+  tt.innerHTML = `
+    <b class="title" style="color:${color}">${expo.Nom_de_l_exposition || 'Sans nom'}</b>
+    <div><b>?? Lieu :</b> ${getLieuName(expo.Musee)}</div>
+    ${svcs ? `<div><b>??? Service(s) :</b> ${svcs}</div>` : ''}
+    <hr style="border:0; border-top:1px solid #555; margin:6px 0;">
+    ${equipeHtml}
+    ${(!expo.Pret && m)
+      ? `<hr style="border:0; border-top:1px solid #555; margin:6px 0;">
+         <div><b>?? Montage :</b> ${fmtDate(m.start)} ? ${fmtDate(m.end)}</div>` : ''}
+    <div><b>?? ${expo.Pret ? 'Pr�t' : 'Expo'} :</b>
+      ${v ? fmtDate(v) + ' ? ' + fmtDate(f) : 'N/A'}</div>
+    ${(!expo.Pret && dem)
+      ? `<div><b>?? D�montage :</b> ${fmtDate(dem.start)} ? ${fmtDate(dem.end)}</div>` : ''}
+  `;
+  tt.classList.add('visible');
+  const x = Math.min(e.clientX + 15, window.innerWidth - 335);
+  tt.style.left = x + 'px';
+  tt.style.top  = (e.clientY + 15) + 'px';
+}
+function hideTooltip() { document.getElementById('tooltip').classList.remove('visible'); }
+
+// ==================== EDIT / CREATE PANEL ====================
+function openCreate() {
+  const nextColor = COLOR_PALETTE[expos.length % COLOR_PALETTE.length].dark;
+  renderEditPanel(null, nextColor);
+  document.getElementById('edit-overlay').classList.add('open');
+}
+
+function openEdit(id) {
+  const expo = expos.find(x => x.id === id);
+  if (!expo) return;
+  renderEditPanel(expo, expo.CouleurEXPO || COLOR_PALETTE[0].dark);
+  document.getElementById('edit-overlay').classList.add('open');
+}
+
+function closeEdit() {
+  document.getElementById('edit-overlay').classList.remove('open');
+}
+
+function selectColor(hex) {
+  document.getElementById('ed-color').value = hex;
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.classList.toggle('selected', sw.dataset.color === hex);
+  });
+}
+
+function renderEditPanel(expo, currentColorCode) {
+  const isNew = !expo;
+
+  const lieuxOptions = Object.entries(lieuxObj)
+    .map(([id, l]) => `<option value="${id}"
+      ${expo && String(expo.Musee) === String(id) ? 'selected' : ''}>${l.nom}</option>`)
+    .sort((a, b) => a.localeCompare(b)).join('');
+
+  const personnelOptions = (selected, svcWanted) => {
+    const selectedStr = selected !== undefined && selected !== null ? String(selected) : '';
+    const wantedNorm = svcWanted ? normalizeServiceForMatch(svcWanted) : null;
+
+    let entries = Object.entries(personnel).filter(([id]) => {
+      if (selectedStr && String(id) === selectedStr) return true; // keep current selection
+      if (!wantedNorm) return true;
+      const svcs = personnelServices[id] || [];
+      return svcs.some(s => normalizeServiceForMatch(s) === wantedNorm);
+    });
+
+    // Fallback: if no service mapping matched, avoid empty dropdown.
+    if (wantedNorm && entries.length === 0) entries = Object.entries(personnel);
+
+    entries.sort((a, b) => a[1].localeCompare(b[1]));
+    return '<option value=""> </option>' +
+      entries.map(([id, nom]) => `<option value="${id}"
+        ${selectedStr && String(selectedStr) === String(id) ? 'selected' : ''}>${nom}</option>`).join('');
+  };
+
+  // Checkboxes services � depuis SERVICES_LIST, toujours visibles
+  const currentSvcs   = expo ? getServices(expo) : [];
+  const svcCheckboxes = SERVICES_LIST.map(s =>
+    `<label>
+      <input type="checkbox" class="fm-svc-cb" value="${s}"
+        ${currentSvcs.includes(s) ? 'checked' : ''}>
+      ${s}
+    </label>`
+  ).join('');
+
+  const colorSwatches = COLOR_PALETTE.map(c =>
+    `<div class="color-swatch ${c.dark === currentColorCode ? 'selected' : ''}"
+      style="background:${c.dark};" data-color="${c.dark}"
+      title="${c.name}" onclick="selectColor('${c.dark}')"></div>`
+  ).join('');
+
+  document.getElementById('edit-panel').innerHTML = `
+    <h2>${isNew ? '? Nouvelle exposition' : '?? Modifier l\'exposition'}</h2>
+    <div class="edit-grid">
+
+      <div class="edit-row full">
+        <label>Nom de l'exposition *</label>
+        <input type="text" id="fm-nom"
+          value="${expo ? (expo.Nom_de_l_exposition || '') : ''}"
+          placeholder="Nom de l'exposition">
+      </div>
+
+      <div class="edit-row">
+        <label>Lieu</label>
+        <select id="fm-musee"><option value=""> </option>${lieuxOptions}</select>
+      </div>
+
+      <div class="edit-row">
+        <label>Vernissage</label>
+        <input type="date" id="fm-v"
+          value="${expo ? fmtInputDate(expo.vernissage) : ''}">
+      </div>
+      <div class="edit-row">
+        <label>Finissage</label>
+        <input type="date" id="fm-f"
+          value="${expo ? fmtInputDate(expo.finissage) : ''}">
+      </div>
+      <div class="edit-row">
+        <label>D�but montage</label>
+        <input type="date" id="fm-dm"
+          value="${expo ? fmtInputDate(expo.debut_date_montage) : ''}">
+      </div>
+      <div class="edit-row">
+        <label>Fin d�montage</label>
+        <input type="date" id="fm-fdm"
+          value="${expo ? fmtInputDate(expo.fin_date_montage) : ''}">
+      </div>
+
+      <div class="edit-row full">
+        <label>Services concern�s</label>
+        <div class="checkbox-group">${svcCheckboxes}</div>
+      </div>
+
+      <div class="edit-row">
+        <label>R�gisseur AV (SPAV)</label>
+        <select id="fm-av">${personnelOptions(expo ? expo.Regisseur_AV : '', 'SPAV')}</select>
+      </div>
+      <div class="edit-row">
+        <label>R�gisseur AMT</label>
+        <select id="fm-amt">${personnelOptions(expo ? expo.Regisseur_AMT : '', 'AMT')}</select>
+      </div>
+      <div class="edit-row">
+        <label>AMT Lumi�re</label>
+        <select id="fm-lumiere">${personnelOptions(expo ? expo.AMT_Lumiere : '', 'AMT lumi�re')}</select>
+      </div>
+      <div class="edit-row">
+        <label>R�gie des salles</label>
+        <select id="fm-salles">${personnelOptions(expo ? expo.Regis_des_salles : '', 'R�gie des salles')}</select>
+      </div>
+
+      <div class="edit-row full">
+        <div class="checkbox-group">
+          <label style="background:none;">
+            <input type="checkbox" id="fm-pret"
+              ${expo && expo.Pret ? 'checked' : ''}>
+            Mat�riel en Pr�t (masque les montages)
+          </label>
+        </div>
+      </div>
+
+      <div class="edit-row full">
+        <label>Couleur</label>
+        <input type="hidden" id="ed-color" value="${currentColorCode}">
+        <div class="color-picker-grid">${colorSwatches}</div>
+      </div>
+
+    </div>
+    <div class="edit-actions">
+      ${!isNew
+        ? `<button class="btn btn-danger"
+             onclick="deleteExpo(${expo.id})">??? Supprimer</button>`
+        : ''}
+      <button class="btn btn-today" onclick="closeEdit()">Annuler</button>
+      <button class="btn btn-primary"
+        onclick="saveExpo(${isNew ? 'null' : expo.id})">?? Enregistrer</button>
+    </div>
+  `;
+}
+
+// ==================== SAVE / DELETE ====================
+function getRecordFromForm() {
+  const checkedSvcs = Array.from(document.querySelectorAll('.fm-svc-cb:checked'))
+    .map(cb => cb.value);
+
+  const record = {
+    Nom_de_l_exposition: document.getElementById('fm-nom').value,
+    Service:     ['L', ...checkedSvcs],
+    Pret:        document.getElementById('fm-pret').checked,
+    CouleurEXPO: document.getElementById('ed-color').value
+  };
+
+    // Colonnes Reference() � Column IDs exacts sans accent
+  const refFields = {
+    Musee:            document.getElementById('fm-musee').value,
+    Regisseur_AV:     document.getElementById('fm-av').value,
+    Regisseur_AMT:    document.getElementById('fm-amt').value,
+    AMT_Lumiere:      document.getElementById('fm-lumiere').value,  // sans accent
+    Regis_des_salles: document.getElementById('fm-salles').value
+  };
+  Object.entries(refFields).forEach(([key, val]) => {
+    const parsed = parseInt(val);
+    record[key] = (!isNaN(parsed) && parsed > 0) ? parsed : 0;
+  });
+
+  // Dates � uniquement si renseign�es
+  const dateFields = {
+    vernissage:         document.getElementById('fm-v').value,
+    finissage:          document.getElementById('fm-f').value,
+    debut_date_montage: document.getElementById('fm-dm').value,
+    fin_date_montage:   document.getElementById('fm-fdm').value
+  };
+  Object.entries(dateFields).forEach(([key, val]) => {
+    if (val) record[key] = val;
+  });
+
+  return record;
+}
+
+async function saveExpo(id) {
+  const record = getRecordFromForm();
+  if (!record.Nom_de_l_exposition.trim()) {
+    alert('Le nom de l\'exposition est obligatoire.');
+    return;
+  }
+  try {
+    if (id) {
+      await grist.docApi.applyUserActions([['UpdateRecord', TABLE_EXPOS, id, record]]);
+    } else {
+      await grist.docApi.applyUserActions([['AddRecord', TABLE_EXPOS, null, record]]);
+    }
+    closeEdit();
+  } catch(e) {
+    alert('Erreur lors de l\'enregistrement : ' + e.message);
+  }
+}
+
+async function deleteExpo(id) {
+  if (!confirm('Supprimer cette exposition ? Cette action est irr�versible.')) return;
+  try {
+    await grist.docApi.applyUserActions([['RemoveRecord', TABLE_EXPOS, id]]);
+    closeEdit();
+  } catch(e) {
+    alert('Erreur lors de la suppression : ' + e.message);
+  }
+}
+
+// ==================== EXPORT ICS ====================
+function exportICS() {
+  const filtered = getFilteredExpos();
+  const ics  = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Planning Expos//FR','CALSCALE:GREGORIAN'];
+  const fmtD = d => d.toISOString().replace(/-|:|\.\d+/g, '').substring(0, 8);
+
+  filtered.forEach(expo => {
+    const v = fixDate(expo.vernissage), f = fixDate(expo.finissage);
+    if (v && f) {
+      const fNext = new Date(f); fNext.setDate(fNext.getDate() + 1);
+      ics.push('BEGIN:VEVENT',
+        `DTSTART;VALUE=DATE:${fmtD(v)}`,
+        `DTEND;VALUE=DATE:${fmtD(fNext)}`,
+        `SUMMARY:${expo.Nom_de_l_exposition || 'Expo'}`,
+        `LOCATION:${getLieuName(expo.Musee)}`,
+        'END:VEVENT');
+    }
+  });
+  ics.push('END:VCALENDAR');
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([ics.join('\r\n')], { type: 'text/calendar' }));
+  a.download = 'planning_expos.ics';
+  a.click();
+}
+
+// ==================== INIT ====================
+window.onload = function() {
+  grist.ready({ requiredAccess: 'full' });
+  grist.onRecords(loadData);
+};
+</script>
+</body>
+</html>
