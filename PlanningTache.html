@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>PLANNING - VERSION OPTIMISÉE</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --accent: #6c5ce7;
+    --blue-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --border: #dfe6e9;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; color: #2d3436; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .header { background: var(--blue-gradient); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+
+  .quick-add { 
+    display: flex; gap: 8px; align-items: flex-end; background: white; 
+    padding: 10px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; 
+  }
+  .field-group { display: flex; flex-direction: column; gap: 3px; }
+  .field-group label { font-size: 9px; font-weight: 800; color: #636e72; text-transform: uppercase; }
+  .quick-add input, .quick-add select { border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-size: 12px; height: 32px; }
+
+  .btn { border: none; border-radius: 4px; padding: 0 15px; font-size: 11px; cursor: pointer; font-weight: 700; transition: 0.2s; height: 32px; display: flex; align-items: center; justify-content: center; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-ics { background: #00b894; color: white; }
+  .btn-today { background: #f1f2f6; color: #2d3436; }
+  .btn-delete { background: #d63031; color: white; display: none; }
+  .btn-work { background: #fdcb6e; color: #2d3436; font-size: 10px; }
+  .btn-work.active { background: #e17055; color: white; }
+
+  .controls { background: white; padding: 8px 20px; display: flex; gap: 25px; align-items: center; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .zoom-container { display: flex; flex-direction: column; gap: 2px; }
+  .zoom-labels { display: flex; justify-content: space-between; width: 180px; font-size: 8px; color: #636e72; font-weight: 700; margin-top: 2px; }
+
+  .main-area { display: flex; flex: 1; overflow: hidden; }
+  .labels-col { width: 300px; min-width: 300px; background: white; border-right: 2px solid var(--border); overflow: hidden; flex-shrink: 0; display: flex; flex-direction: column; }
+  .label-header { height: 80px; border-bottom: 2px solid var(--accent); display: flex; align-items: flex-end; padding: 12px; font-size: 10px; font-weight: bold; color: #b2bec3; background: white; flex-shrink: 0; }
+  #labelsContainer { flex: 1; overflow: hidden; }
+
+  .expo-label-title { height: 30px; padding: 0 12px; font-size: 12px; font-weight: 800; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-label-row { height: 40px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid rgba(0,0,0,0.03); font-size: 11px; gap: 10px; }
+  .task-label-row .task-info { overflow: hidden; flex: 1; min-width: 0; }
+  .task-label-row .task-info b, .task-label-row .task-info small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-label-row .task-info small { color: #6c5ce7; font-weight: 700; font-size: 9px; margin-top: -2px; }
+
+  .custom-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .custom-check.checked { background: var(--accent); }
+  .custom-check.checked::after { content: '✓'; color: white; font-weight: bold; font-size: 12px; }
+
+  .timeline-scroll { flex: 1; overflow: auto; position: relative; background: white; scroll-behavior: smooth; }
+  .chrono-header { position: sticky; top: 0; z-index: 20; background: white; border-bottom: 2px solid var(--accent); height: 80px; }
+  .day-cell { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid #f1f2f6; font-size: 10px; height: 40px; }
+  .day-cell.weekend { background: #fffaf0; color: #e17055; }
+  .day-cell.holiday { background: #ffe0e0; color: #d63031; }
+  .day-cell.today { background: var(--accent) !important; color: white; font-weight: bold; }
+
+  .grid-line { position: absolute; top: 0; bottom: 0; border-right: 1px solid #f1f2f6; pointer-events: none; }
+  .today-marker { position: absolute; top: 0; bottom: 0; border-left: 2px dashed var(--accent); z-index: 15; pointer-events: none; }
+
+  .task-bar { position: absolute; height: 28px; border-radius: 5px; display: flex; align-items: center; padding: 0 10px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; color: rgba(0,0,0,0.7); font-weight: 600; z-index: 10; }
+  .task-bar.done { opacity: 0.45; filter: grayscale(0.5); background-image: repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(255,255,255,0.3) 4px, rgba(255,255,255,0.3) 8px) !important; }
+
+  .tooltip { 
+    position: fixed; background: rgba(45, 52, 54, 0.98); color: white; padding: 12px; 
+    border-radius: 6px; font-size: 11px; z-index: 9999; display: none; pointer-events: none; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4); line-height: 1.6; min-width: 220px; border: 1px solid #636e72;
+  }
+
+  .people-select { position: relative; display: inline-block; }
+  .people-btn { border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 12px; background: white; cursor: pointer; min-width: 120px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; height: 32px; display: flex; align-items: center; }
+  .people-dropdown { display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; max-height: 200px; overflow-y: auto; min-width: 180px; }
+  .people-dropdown.open { display: block; }
+  .people-dropdown label { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; text-transform: none; color: #2d3436; font-weight: normal; }
+  .people-dropdown label:hover { background: #f1f2f6; }
+  .people-dropdown label input[type="checkbox"] { margin: 0; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 style="font-size:16px">PLANNING MONTAGE/DEMONTAGE</h1>
+  <div id="status" style="font-size:10px; opacity:0.8">Initialisation...</div>
+</div>
+
+<div class="quick-add">
+  <div class="field-group" style="flex: 0.8;"><label>Exposition</label><select id="add-expo"></select></div>
+  <div class="field-group" style="flex: 1;"><label>Tâche</label><input type="text" id="add-nom" placeholder="Nom..."></div>
+  <div class="field-group" style="width: 90px;"><label>Priorité</label>
+    <select id="add-priorite">
+      <option value="Basse">Basse</option>
+      <option value="Normale" selected>Normale</option>
+      <option value="Haute">Haute</option>
+      <option value="Urgente">Urgente</option>
+    </select>
+  </div>
+  <div class="field-group"><label>Début</label><input type="datetime-local" id="add-debut"></div>
+  <div class="field-group"><label>Fin</label><input type="datetime-local" id="add-fin"></div>
+  <div class="field-group"><label>Attribuer à</label>
+    <div class="people-select">
+      <div class="people-btn" id="people-btn" onclick="togglePeopleDropdown()">Sélectionner...</div>
+      <div class="people-dropdown" id="people-dropdown"></div>
+    </div>
+  </div>
+  <button class="btn btn-primary" id="btn-submit" onclick="quickAdd()">CRÉER</button>
+  <button class="btn btn-delete" id="btn-delete" onclick="deleteTask()">SUPPRIMER</button>
+  <button class="btn btn-ics" onclick="exportToICS()">📅 ICS</button>
+  <button class="btn btn-today" onclick="resetForm()" style="margin-left:auto;" title="Annuler">✖</button>
+</div>
+
+<div class="controls">
+  <button class="btn btn-today" onclick="scrollToToday()">🎯 AUJOURD'HUI</button>
+  <button class="btn btn-work" id="workHoursBtn" onclick="toggleWorkHours()">🕐 9h-18h</button>
+  <div class="zoom-container">
+    <input type="range" id="zoomSlider" min="0" max="8" value="4" style="width:180px;">
+    <div class="zoom-labels"><span>1 AN</span><span>6 MOIS</span><span>3 MOIS</span><span>1 MOIS</span><span>1 SEM</span></div>
+  </div>
+  <span id="zoomInfo" style="font-size:10px; color:#636e72; font-weight:700; min-width:60px;"></span>
+  <select id="filterExpo" onchange="renderAll()" style="border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-size: 12px;"><option value="">Toutes les expositions</option></select>
+</div>
+
+<div class="main-area">
+  <div class="labels-col" id="labelsCol-wrapper">
+    <div class="label-header">TACHES</div>
+    <div id="labelsContainer"><div id="labelsCol"></div></div>
+  </div>
+  <div class="timeline-scroll" id="timelineScroll" onscroll="syncScroll()"></div>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+const COLORS = ['#fab1a0','#81ecec','#74b9ff','#a29bfe','#ffeaa7','#55efc4','#dff9fb'];
+const DAY_SIZES = [2, 4, 6, 10, 18, 40, 80, 160, 400];
+const ZOOM_LABELS = ['~1 an', '~9 mois', '~6 mois', '~3 mois', '~6 sem', '~3 sem', '~10 jours', '~5 jours', '~2 jours'];
+const JOURS = ['D','L','M','M','J','V','S'];
+
+let dayW = 40;
+let allRows = [];
+let tableId = null;
+let collapsedExpos = new Set();
+let startDate = null;
+let isFirstLoad = true;
+let editingTaskId = null;
+let expoMap = {};
+let peopleList = [];
+let selectedPeople = [];
+let workHoursMode = false;
+let holidaySet = new Set(); // Set de dates fériées au format "YYYY-MM-DD"
+
+grist.ready({
+  requiredAccess: 'full',
+  columns: ["Nom_de_la_tache", "date_debut", "expositon", "date_de_fin", "Attribuer_a", "Priorite", "Fait", "ICS"]
+});
+
+function toggleWorkHours() {
+  workHoursMode = !workHoursMode;
+  const btn = document.getElementById('workHoursBtn');
+  btn.classList.toggle('active', workHoursMode);
+  btn.textContent = workHoursMode ? '🕐 9h-18h ✓' : '🕐 9h-18h';
+  renderAll();
+  setTimeout(scrollToToday, 100);
+}
+
+function prefillWorkHours() {
+  const debInput = document.getElementById('add-debut');
+  const finInput = document.getElementById('add-fin');
+  if (!debInput.value) {
+    const today = new Date();
+    const pad = n => n < 10 ? '0' + n : n;
+    const dateStr = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+    debInput.value = dateStr + 'T09:00';
+    finInput.value = dateStr + 'T18:00';
+  }
+}
+
+// Charge les jours fériés depuis la table Jours_feriers
+async function loadHolidays() {
+  try {
+    const hTable = await grist.docApi.fetchTable('Jours_feriers');
+    if (hTable && hTable.id) {
+      holidaySet.clear();
+      // Cherche la colonne Date
+      const cols = Object.keys(hTable);
+      const dateCol = cols.find(k => k === 'Date' || k === '$Date' || k.toLowerCase() === 'date') || 'Date';
+      if (hTable[dateCol]) {
+        hTable[dateCol].forEach(val => {
+          if (val) {
+            const d = new Date(val > 10000000000 ? val : val * 1000);
+            if (!isNaN(d.getTime())) {
+              const pad = n => n < 10 ? '0' + n : n;
+              const key = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+              holidaySet.add(key);
+            }
+          }
+        });
+      }
+      console.log('Jours fériés chargés:', holidaySet.size);
+    }
+  } catch(e) { console.error('Erreur loadHolidays:', e); }
+}
+
+function isHoliday(date) {
+  const pad = n => n < 10 ? '0' + n : n;
+  const key = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+  return holidaySet.has(key);
+}
+
+async function loadExpos() {
+  try {
+    const eTable = await grist.docApi.fetchTable('Liste_des_Expo');
+    const nameCol = Object.keys(eTable).find(k => k.toLowerCase().includes('nom')) || 'Nom_de_l_exposition';
+    if (eTable && eTable[nameCol]) {
+      expoMap = {};
+      eTable.id.forEach((id, i) => {
+        const nom = eTable[nameCol][i];
+        if (nom) expoMap[nom] = id;
+      });
+      updateMenus();
+    }
+  } catch(e) { console.error('Erreur loadExpos:', e); }
+}
+
+async function loadPeople() {
+  try {
+    const pTable = await grist.docApi.fetchTable('Personnel_SPAV');
+    const cols = Object.keys(pTable);
+    const colPrenom = cols.find(k => k.toLowerCase().includes('prenom') || k.toLowerCase().includes('prénom')) || null;
+    const colNom = cols.find(k => k.toLowerCase() === 'nom' || k.toLowerCase().includes('nom_de_famille') || k.toLowerCase().includes('nom_famille')) || null;
+    const colPersonne = cols.find(k => k.toLowerCase().includes('personne')) || null;
+    
+    if (pTable && pTable.id) {
+      peopleList = [];
+      pTable.id.forEach((id, i) => {
+        let displayName = '';
+        if (colPrenom && colNom && pTable[colPrenom] && pTable[colNom]) {
+          const prenom = pTable[colPrenom][i] || '';
+          const nom = pTable[colNom][i] || '';
+          displayName = (prenom + ' ' + nom).trim();
+        } else if (colPersonne && pTable[colPersonne]) {
+          displayName = pTable[colPersonne][i] || '';
+        } else {
+          for (const k of cols) {
+            if (k !== 'id' && k !== 'manualSort' && pTable[k] && typeof pTable[k][i] === 'string' && pTable[k][i].length > 0) {
+              displayName = pTable[k][i];
+              break;
+            }
+          }
+        }
+        if (displayName) peopleList.push({ id, nom: displayName });
+      });
+      updatePeopleDropdown();
+      renderAll();
+    }
+  } catch(e) { console.error('Erreur loadPeople:', e); }
+}
+
+function updatePeopleDropdown() {
+  const dd = document.getElementById('people-dropdown');
+  dd.innerHTML = peopleList.map(p =>
+    `<label><input type="checkbox" value="${p.id}" onchange="onPeopleChange()"> ${p.nom}</label>`
+  ).join('');
+}
+
+function updateMenus() {
+  const sel = document.getElementById('add-expo');
+  const filt = document.getElementById('filterExpo');
+  sel.innerHTML = '<option value="">-- Choisir --</option>' + Object.keys(expoMap).map(n => `<option value="${n}">${n}</option>`).join('');
+  const prev = filt.value;
+  filt.innerHTML = '<option value="">Toutes les expositions</option>' + Object.keys(expoMap).map(n => `<option value="${n}">${n}</option>`).join('');
+  filt.value = prev;
+}
+
+function fixDate(d) {
+  if (!d) return null;
+  let date = new Date(d > 10000000000 ? d : d * 1000);
+  if (isNaN(date.getTime())) date = new Date(d);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function toDatetimeLocal(d) {
+  if (!d || isNaN(d)) return '';
+  const pad = n => n < 10 ? '0' + n : n;
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function getExpoName(r) {
+  const e = r.expositon;
+  if (!e) return 'Autres';
+  if (Array.isArray(e) && e.length > 1) return String(e[1]);
+  if (typeof e === 'number') {
+    const found = Object.entries(expoMap).find(([n, id]) => id === e);
+    return found ? found[0] : 'Expo #' + e;
+  }
+  return String(e);
+}
+
+function getPersonNames(val) {
+  if (!val) return 'Non assigné';
+  if (Array.isArray(val)) {
+    const names = val.filter(v => typeof v === 'string' && v.length > 0);
+    if (names.length > 0) return names.join(', ');
+    const ids = val.filter(v => typeof v === 'number');
+    if (ids.length > 0) {
+      return ids.map(id => {
+        const person = peopleList.find(p => p.id === id);
+        return person ? person.nom : `ID:${id}`;
+      }).join(', ');
+    }
+  }
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') {
+    const person = peopleList.find(p => p.id === val);
+    return person ? person.nom : `ID:${val}`;
+  }
+  return 'Non assigné';
+}
+
+function timeToX(timestamp) {
+  if (!workHoursMode) {
+    return ((timestamp - startDate.getTime()) / 86400000) * dayW;
+  }
+  const WORK_START = 9;
+  const WORK_END = 18;
+  const WORK_HOURS = WORK_END - WORK_START;
+  
+  const d = new Date(timestamp);
+  const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
+  const dayOffset = Math.floor((dayStart.getTime() - startDate.getTime()) / 86400000);
+  
+  let h = d.getHours() + d.getMinutes() / 60;
+  if (h < WORK_START) h = WORK_START;
+  if (h > WORK_END) h = WORK_END;
+  
+  const fractionOfDay = (h - WORK_START) / WORK_HOURS;
+  return (dayOffset + fractionOfDay) * dayW;
+}
+
+function tip(e, el) { 
+  try {
+    const row = JSON.parse(el.dataset.info);
+    const t = row.data;
+    const tooltip = document.getElementById('tooltip');
+    const dS = fixDate(t.date_debut);
+    const dF = fixDate(t.date_de_fin || t.date_debut);
+    const opt = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    tooltip.innerHTML = `
+      <b style="color:#a29bfe; font-size:13px; display:block; margin-bottom:8px; border-bottom:1px solid #555; padding-bottom:4px">${t.Nom_de_la_tache || 'Sans titre'}</b>
+      <div><b>🖼️ Expo :</b> ${row.expoName}</div>
+      <div><b>📅 Début :</b> ${dS ? dS.toLocaleString('fr-FR', opt) : 'N/A'}</div>
+      <div><b>🏁 Fin :</b> ${dF ? dF.toLocaleString('fr-FR', opt) : 'N/A'}</div>
+      <div><b style="color:#ffeaa7">⚡ Priorité :</b> ${t.Priorite || 'Normale'}</div>
+      <div><b style="color:#55efc4">👤 Assigné :</b> ${getPersonNames(t.Attribuer_a)}</div>
+    `;
+    tooltip.style.display = 'block'; 
+    const x = (e.clientX + 250 > window.innerWidth) ? e.clientX - 240 : e.clientX + 15;
+    tooltip.style.left = x + 'px'; 
+    tooltip.style.top = (e.clientY + 15) + 'px'; 
+  } catch(err) { console.error("Tooltip Error:", err); }
+}
+
+function untip() { document.getElementById('tooltip').style.display = 'none'; }
+
+function updateZoomInfo() {
+  const idx = parseInt(document.getElementById('zoomSlider').value);
+  document.getElementById('zoomInfo').textContent = ZOOM_LABELS[idx] || '';
+}
+
+function renderAll() {
+  updateZoomInfo();
+  const filter = document.getElementById('filterExpo').value;
+  let tasks = allRows.filter(r => {
+    const n = getExpoName(r);
+    return (!filter || n === filter) && r.date_debut;
+  });
+
+  const groupedForCheck = tasks.reduce((acc, t) => {
+    const e = getExpoName(t);
+    if(!acc[e]) acc[e] = []; acc[e].push(t); return acc;
+  }, {});
+
+  tasks = tasks.filter(t => {
+    const e = getExpoName(t);
+    const allDone = groupedForCheck[e].every(task => task.Fait === true || task.Fait === 1);
+    return !allDone; 
+  });
+
+  if(!tasks.length) {
+    document.getElementById('labelsCol').innerHTML = '';
+    document.getElementById('timelineScroll').innerHTML = '<div style="padding:40px; color:#b2bec3;">Aucune tâche active.</div>';
+    return;
+  }
+
+  let minD = Infinity, maxD = -Infinity;
+  tasks.forEach(t => {
+    const d = fixDate(t.date_debut).getTime();
+    const f = fixDate(t.date_de_fin || t.date_debut).getTime();
+    if(d < minD) minD = d; if(f > maxD) maxD = f;
+  });
+
+  startDate = new Date(minD); startDate.setHours(0,0,0,0); startDate.setDate(startDate.getDate() - 5);
+  const totalDays = Math.round((maxD - minD)/86400000) + 40;
+  const totalW = totalDays * dayW;
+
+  const groups = tasks.reduce((acc, t) => {
+    const e = getExpoName(t);
+    if(!acc[e]) acc[e] = []; acc[e].push(t); return acc;
+  }, {});
+
+  let y = 0;
+  const flatRows = [];
+  Object.keys(groups).sort().forEach((expo, idx) => {
+    const isCol = collapsedExpos.has(expo);
+    const color = COLORS[idx % COLORS.length];
+    flatRows.push({ type: 'group', name: expo, color, y, isCol, tasks: groups[expo] });
+    y += 30;
+    if(!isCol) {
+      groups[expo].sort((a,b) => fixDate(a.date_debut).getTime() - fixDate(b.date_debut).getTime()).forEach(t => {
+        flatRows.push({ type: 'task', data: t, color, y, expoName: expo });
+        y += 40;
+      });
+    }
+  });
+
+  const todayX = timeToX(new Date().setHours(12,0,0,0));
+
+  document.getElementById('timelineScroll').innerHTML = `
+    <div style="width:${totalW}px; height:${y+100}px; position:relative;">
+      <div class="chrono-header" style="width:${totalW}px;">
+        <div id="mRow" style="height:40px; position:relative; border-bottom:1px solid #eee"></div>
+        <div id="dRow" style="height:40px; position:relative"></div>
+      </div>
+      <div id="gGrid" style="position:absolute; top:80px; left:0; width:${totalW}px; height:${y}px"></div>
+      <div class="today-marker" style="left:${todayX}px; top:80px;"></div>
+      <div id="gBars" style="position:absolute; top:80px; left:0; width:${totalW}px; height:${y}px"></div>
+    </div>`;
+
+  let lHtml = '';
+  flatRows.forEach(r => {
+    if(r.type==='group') {
+      const count = r.tasks.length;
+      const done = r.tasks.filter(t => t.Fait === true || t.Fait === 1).length;
+      const summary = r.isCol ? ` <span style="font-weight:normal; font-size:10px; margin-left:8px;">📊 ${count} tâche${count>1?'s':''} — ✅ ${done}/${count}</span>` : '';
+      lHtml += `<div class="expo-label-title" onclick="toggleCollapse('${r.name.replace(/'/g, "\\'")}')" style="background:${r.color}40; border-left:4px solid ${r.color}">${r.isCol?'▶':'▼'} ${r.name}${summary}</div>`;
+    } else {
+      lHtml += `<div class="task-label-row" style="background:${r.color}15">
+        <div class="custom-check ${r.data.Fait?'checked':''}" onclick="toggleTask(${r.data.id}, ${!!r.data.Fait})"></div>
+        <div class="task-info"><b>${r.data.Nom_de_la_tache || ''}</b><small>👤 ${getPersonNames(r.data.Attribuer_a)}</small></div>
+      </div>`;
+    }
+  });
+  document.getElementById('labelsCol').innerHTML = lHtml;
+
+  let dH='', mH='', gH='', bH=''; let lastM=-1;
+  for(let i=0; i<=totalDays; i++) {
+    const d = new Date(startDate); d.setDate(d.getDate() + i);
+    const we = d.getDay()===0 || d.getDay()===6;
+    const hol = isHoliday(d);
+    const today = d.toDateString() === new Date().toDateString();
+    let cls = '';
+    if (we) cls = 'weekend';
+    if (hol) cls = 'holiday';
+    if (today) cls = 'today';
+    dH += `<div class="day-cell ${cls}" style="left:${i*dayW}px; width:${dayW}px"><b>${d.getDate()}</b><small>${JOURS[d.getDay()]}</small></div>`;
+    
+    // Grille : colorer aussi les colonnes verticales pour WE et fériés
+    let gridColor = '#f1f2f6';
+    let gridBg = '';
+    if (we) { gridColor = '#fdeaea'; gridBg = 'background:rgba(255,224,224,0.3);'; }
+    if (hol) { gridColor = '#ffcccc'; gridBg = 'background:rgba(214,48,49,0.08);'; }
+    gH += `<div class="grid-line" style="left:${i*dayW}px; width:${dayW}px; border-right:1px solid ${gridColor}; ${gridBg}"></div>`;
+    
+    if(d.getMonth()!==lastM) {
+      mH += `<div style="position:absolute; left:${i*dayW}px; padding:12px; font-size:10px; font-weight:bold; color:var(--accent); text-transform:uppercase">${d.toLocaleDateString('fr-FR', {month:'long', year:'numeric'})}</div>`;
+      lastM = d.getMonth();
+    }
+  }
+
+  flatRows.forEach(r => {
+    if(r.type==='task') {
+      const sTime = fixDate(r.data.date_debut).getTime();
+      const eTime = fixDate(r.data.date_de_fin||r.data.date_debut).getTime();
+      const x = timeToX(sTime);
+      const x2 = timeToX(eTime);
+      const w = Math.max(x2 - x, 10);
+      const safeData = JSON.stringify({ data: r.data, expoName: r.expoName }).replace(/"/g, '&quot;');
+      bH += `<div class="task-bar ${r.data.Fait?'done':''}" style="left:${x}px; width:${w}px; top:${r.y+6}px; background:${r.color}" onmouseenter="tip(event, this)" onmouseleave="untip()" onclick="editTask(${r.data.id})" data-info="${safeData}">${dayW>30?r.data.Nom_de_la_tache:''}</div>`;
+    } else if(r.type==='group' && r.isCol) {
+      let sMin = Infinity, eMax = -Infinity;
+      r.tasks.forEach(t => {
+        const ds = fixDate(t.date_debut).getTime();
+        const de = fixDate(t.date_de_fin || t.date_debut).getTime();
+        if(ds < sMin) sMin = ds;
+        if(de > eMax) eMax = de;
+      });
+      if(sMin !== Infinity) {
+        const x = timeToX(sMin);
+        const x2 = timeToX(eMax);
+        const w = Math.max(x2 - x, 10);
+        const done = r.tasks.filter(t => t.Fait === true || t.Fait === 1).length;
+        const pct = Math.round((done / r.tasks.length) * 100);
+        bH += `<div style="position:absolute; left:${x}px; width:${w}px; top:${r.y+2}px; height:26px; border-radius:6px; background:${r.color}50; border:2px solid ${r.color}; display:flex; align-items:center; overflow:hidden; cursor:pointer;" onclick="toggleCollapse('${r.name.replace(/'/g, "\\'")}')">
+          <div style="height:100%; width:${pct}%; background:${r.color}90; transition:width 0.3s;"></div>
+          <span style="position:absolute; width:100%; text-align:center; font-size:10px; font-weight:bold; color:#2d3436; text-shadow:0 0 3px white;">${pct}%</span>
+        </div>`;
+      }
+    }
+  });
+
+  document.getElementById('dRow').innerHTML = dH; document.getElementById('mRow').innerHTML = mH;
+  document.getElementById('gGrid').innerHTML = gH; document.getElementById('gBars').innerHTML = bH;
+}
+
+grist.onRecords((records, mappings) => {
+  allRows = records.map(r => ({ ...grist.mapColumnNames(r), id: r.id }));
+  tableId = mappings.tableId || 'Planning';
+  if (isFirstLoad) {
+    loadExpos();
+    loadPeople();
+    loadHolidays().then(() => renderAll());
+    setTimeout(scrollToToday, 250);
+    isFirstLoad = false;
+  }
+  renderAll();
+});
+
+function syncScroll() { document.getElementById('labelsCol').style.transform = `translateY(-${document.getElementById('timelineScroll').scrollTop}px)`; }
+function scrollToToday() {
+  if(!startDate) return;
+  const todayX = timeToX(new Date().setHours(12,0,0,0));
+  const container = document.getElementById('timelineScroll');
+  container.scrollLeft = todayX - (container.clientWidth / 3);
+}
+
+document.getElementById('zoomSlider').oninput = function() { dayW = DAY_SIZES[this.value]; renderAll(); scrollToToday(); };
+async function toggleTask(id, val) { await grist.docApi.applyUserActions([['UpdateRecord', tableId, id, { Fait: !val }]]); }
+function toggleCollapse(n) { collapsedExpos.has(n) ? collapsedExpos.delete(n) : collapsedExpos.add(n); renderAll(); }
+function togglePeopleDropdown() { document.getElementById('people-dropdown').classList.toggle('open'); }
+
+document.addEventListener('click', e => { if (!e.target.closest('.people-select')) document.getElementById('people-dropdown').classList.remove('open'); });
+
+function onPeopleChange() {
+  const checks = document.querySelectorAll('#people-dropdown input:checked');
+  selectedPeople = Array.from(checks).map(c => parseInt(c.value));
+  const btn = document.getElementById('people-btn');
+  if (selectedPeople.length === 0) { btn.textContent = 'Sélectionner...'; } 
+  else {
+    const names = selectedPeople.map(id => {
+      const p = peopleList.find(x => x.id === id);
+      return p ? p.nom : id;
+    });
+    btn.textContent = names.join(', ');
+  }
+}
+
+function editTask(id) {
+  const t = allRows.find(r => r.id === id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('add-nom').value = t.Nom_de_la_tache || '';
+  document.getElementById('add-priorite').value = t.Priorite || 'Normale';
+  document.getElementById('add-debut').value = toDatetimeLocal(fixDate(t.date_debut));
+  document.getElementById('add-fin').value = toDatetimeLocal(fixDate(t.date_de_fin || t.date_debut));
+  document.getElementById('add-expo').value = getExpoName(t);
+
+  selectedPeople = (t.Attribuer_a && Array.isArray(t.Attribuer_a)) ? t.Attribuer_a.filter(x => typeof x === 'number') : [];
+  document.querySelectorAll('#people-dropdown input').forEach(c => c.checked = selectedPeople.includes(parseInt(c.value)));
+  onPeopleChange();
+
+  document.getElementById('btn-submit').textContent = 'MODIFIER';
+  document.getElementById('btn-delete').style.display = 'block';
+}
+
+function resetForm() {
+  editingTaskId = null;
+  document.getElementById('add-nom').value = '';
+  document.getElementById('add-priorite').value = 'Normale';
+  document.getElementById('add-debut').value = '';
+  document.getElementById('add-fin').value = '';
+  selectedPeople = [];
+  document.querySelectorAll('#people-dropdown input').forEach(c => c.checked = false);
+  onPeopleChange();
+  document.getElementById('btn-submit').textContent = 'CRÉER';
+  document.getElementById('btn-delete').style.display = 'none';
+}
+
+async function quickAdd() {
+  const nom = document.getElementById('add-nom').value;
+  let deb = document.getElementById('add-debut').value;
+  let fin = document.getElementById('add-fin').value;
+  const expoNom = document.getElementById('add-expo').value;
+  
+  if (!deb) {
+    prefillWorkHours();
+    deb = document.getElementById('add-debut').value;
+    fin = document.getElementById('add-fin').value;
+  }
+  
+  if (!nom || !deb || !expoNom) return alert("Champs manquants");
+
+  const record = {
+    Nom_de_la_tache: nom,
+    Priorite: document.getElementById('add-priorite').value,
+    date_debut: new Date(deb).getTime() / 1000,
+    date_de_fin: new Date(fin || deb).getTime() / 1000,
+    expositon: expoMap[expoNom] || expoNom,
+    Fait: false,
+    Attribuer_a: selectedPeople.length > 0 ? ['L', ...selectedPeople] : null
+  };
+
+  try {
+    if (editingTaskId) await grist.docApi.applyUserActions([['UpdateRecord', tableId, editingTaskId, record]]);
+    else await grist.docApi.applyUserActions([['AddRecord', tableId, null, record]]);
+    resetForm();
+  } catch(err) { alert("Erreur : " + err.message); }
+}
+
+async function deleteTask() {
+  if (!editingTaskId || !confirm("Supprimer ?")) return;
+  try {
+    await grist.docApi.applyUserActions([['RemoveRecord', tableId, editingTaskId]]);
+    resetForm();
+  } catch(err) { alert(err.message); }
+}
+
+async function exportToICS() {
+  const tasks = allRows.filter(r => r.date_debut);
+  let ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Grist//Planning//FR'];
+  tasks.forEach(t => {
+    const s = fixDate(t.date_debut).toISOString().replace(/-|:|\.\d+/g, '').substring(0,8);
+    ics.push('BEGIN:VEVENT', `SUMMARY:[${getExpoName(t)}] ${t.Nom_de_la_tache}`, `DTSTART;VALUE=DATE:${s}`, `DTEND;VALUE=DATE:${s}`, `DESCRIPTION:Assigné: ${getPersonNames(t.Attribuer_a)}`, 'END:VEVENT');
+  });
+  ics.push('END:VCALENDAR');
+  const blob = new Blob([ics.join('\r\n')], {type:'text/calendar'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `planning.ics`; a.click();
+}
+
+document.getElementById('add-debut').addEventListener('focus', function() {
+  if (!this.value) prefillWorkHours();
+});
+
+updateZoomInfo();
+</script>
+</body>
+</html>
