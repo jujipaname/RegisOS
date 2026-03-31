@@ -9,8 +9,8 @@
     --accent: #6c5ce7;
     --blue-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --border: #dfe6e9;
-    --ferie-global-bg: rgba(214, 48, 49, 0.06);
-    --ferie-local-bg: rgba(253, 203, 110, 0.3);
+    --ferie-global-bg: rgba(214, 48, 49, 0.12);
+    --ferie-local-bg: rgba(253, 203, 110, 0.35);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; color: #2d3436; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -31,14 +31,18 @@
   .btn-success { background: #00b894; color: white; }
   .btn-info { background: #0984e3; color: white; }
 
-  .zoom-control { display: flex; align-items: center; gap: 6px; flex-direction: column; align-items: flex-start; }
+  .zoom-control { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .zoom-control input[type=range] { width: 120px; }
-  .zoom-label { font-size: 10px; font-weight: 700; color: #636e72; min-width: 40px; }
+  .zoom-label { font-size: 10px; font-weight: 700; color: #636e72; }
 
   .filter-group { display: flex; flex-direction: column; gap: 3px; }
   .filter-group label { font-size: 9px; font-weight: 800; color: #636e72; text-transform: uppercase; }
   .filter-group select { border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-size: 12px; height: 32px; min-width: 100px; max-width: 140px; text-overflow: ellipsis; white-space: nowrap; }
   .filter-group select:disabled { background: #f1f2f6; color: #b2bec3; cursor: not-allowed; }
+
+  .legend { display: flex; gap: 14px; align-items: center; padding: 5px 20px; background: white; border-bottom: 1px solid var(--border); font-size: 10px; flex-shrink: 0; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-weight: 700; color: #636e72; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
 
   .container { flex: 1; overflow: auto; position: relative; background: white; scroll-behavior: smooth; }
   .gantt-wrapper { position: relative; }
@@ -50,7 +54,8 @@
   .day-cell b { font-size: 11px; }
   .day-cell small { font-size: 9px; }
   .day-cell.weekend { background: #fffaf0; color: #e17055; }
-  .day-cell.ferie { background: #ffe0e0 !important; color: #d63031 !important; }
+  .day-cell.ferie-global { background: #ffe0e0 !important; color: #d63031 !important; font-weight: 900; }
+  .day-cell.ferie-local { background: #fff8e1 !important; color: #b8860b !important; font-weight: 900; }
   .day-cell.today-col { background: var(--accent) !important; color: white !important; }
 
   .workload-header-bar { display: none; height: 40px; background: #f8f9fa; border-bottom: 1px solid #dfe6e9; }
@@ -61,13 +66,14 @@
 
   .gantt-body { position: relative; }
   .grid-col { position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 0; border-right: 1px solid #f1f2f6; }
-  .grid-col.weekend { background: rgba(255, 224, 224, 0.3); border-right: 1px solid #fdeaea; }
-  .grid-col.ferie { background: var(--ferie-global-bg); border-right: 1px solid #ffcccc; }
+  .grid-col.weekend { background: rgba(225,112,85,0.08); border-right-color: #fde8e0; }
+  .grid-col.ferie-global { background: rgba(214,48,49,0.10); border-right-color: #ffbbbb; }
 
   .today-line { position: absolute; top: 0; bottom: 0; border-left: 2px dashed var(--accent); z-index: 12; pointer-events: none; }
   .group-header { background: #f8f9fa; padding: 8px 0; font-size: 12px; font-weight: 800; color: #2d3436; cursor: pointer; border-bottom: 1px solid var(--border); position: relative; z-index: 15; text-transform: uppercase; }
   .sticky-text { position: sticky; left: 16px; display: inline-flex; align-items: center; gap: 8px; z-index: 20; }
   .group-count { background: var(--accent); color: white; border-radius: 10px; padding: 1px 8px; font-size: 9px; }
+  .group-flag { font-size: 18px; line-height: 1; }
 
   .group-content { position: relative; }
   .ferie-local-bg { position: absolute; top: 0; bottom: 0; background: var(--ferie-local-bg); border-right: 1px solid #f39c12; pointer-events: auto; z-index: 1; }
@@ -95,6 +101,9 @@
   .edit-row label { font-size: 10px; font-weight: 800; color: #636e72; text-transform: uppercase; }
   .edit-row input, .edit-row select { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; width: 100%; }
   .edit-row input:focus, .edit-row select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,92,231,0.2); }
+  .edit-row.service-row { display: flex; flex-direction: row; gap: 8px; align-items: flex-end; }
+  .edit-row.service-row label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #2d3436; background: #f1f2f6; padding: 4px 8px; border-radius: 4px; white-space: nowrap; justify-self: center; margin-bottom: 0; }
+  .edit-row.service-row select { flex: 1; }
   .checkbox-group { display: flex; gap: 16px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
   .checkbox-group label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; text-transform: none; font-weight: 600; color: #2d3436; background: #f1f2f6; padding: 4px 8px; border-radius: 4px; }
   .edit-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 16px; }
@@ -109,14 +118,14 @@
 <body>
 
 <div class="header">
-  <h1>?? PLANNING EXPOSITIONS</h1>
+  <h1>🎨 PLANNING EXPOSITIONS</h1>
   <div class="header-right">
-    <button class="btn btn-ics" onclick="exportICS()">?? Export ICS</button>
+    <button class="btn btn-ics" onclick="exportICS()">📅 Export ICS</button>
   </div>
 </div>
 
 <div class="toolbar">
-  <button class="btn btn-today" id="btn-today" onclick="goToday()">?? AUJOURD'HUI</button>
+  <button class="btn btn-today" id="btn-today" onclick="goToday()">🎯 AUJOURD'HUI</button>
 
   <div class="zoom-control">
     <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:2px;">
@@ -141,9 +150,17 @@
     </select>
   </div>
 
-  <button class="btn btn-info"    id="btn-workload"  onclick="toggleWorkload()">?? CHARGE TRAVAIL</button>
-  <button class="btn btn-warning" id="btn-hide-past" onclick="toggleHidePast()">?? MASQUER TERMIN�ES</button>
-  <button class="btn btn-success" onclick="openCreate()">? NOUVELLE EXPO</button>
+  <button class="btn btn-info"    id="btn-workload"  onclick="toggleWorkload()">📊 CHARGE TRAVAIL</button>
+  <button class="btn btn-warning" id="btn-hide-past" onclick="toggleHidePast()">🧹 MASQUER TERMINÉES</button>
+  <button class="btn btn-success" onclick="openCreate()">➕ NOUVELLE EXPO</button>
+</div>
+
+<div class="legend">
+  <span style="font-weight:800; color:#636e72; font-size:10px;">LÉGENDE :</span>
+  <div class="legend-item"><div class="legend-dot" style="background:rgba(225,112,85,0.25); border:1px solid #e17055;"></div> Week-end</div>
+  <div class="legend-item"><div class="legend-dot" style="background:rgba(214,48,49,0.18); border:1px solid #d63031;"></div> Férié 🇫🇷</div>
+  <div class="legend-item"><div class="legend-dot" style="background:rgba(253,203,110,0.45); border:1px solid #f0b429;"></div> Férié étranger 🌍</div>
+  <div class="legend-item"><div style="width:12px; height:12px; border-left:2px dashed #6c5ce7;"></div> Aujourd'hui</div>
 </div>
 
 <div class="container" id="container">
@@ -182,15 +199,121 @@ const COLOR_PALETTE = [
 const JOURS = ['D','L','M','M','J','V','S'];
 
 // Services fixes � noms exacts de la ChoiceList Grist
-const SERVICES_LIST = ['SPAV', 'AMT', 'AMT lumi�re', 'R�gie des salles'];
+const SERVICES_LIST = ['SPAV', 'AMT', 'AMT lumière', 'Régie des salles'];
 
 // Mapping service ? Column ID exact Grist (sans accent, v�rifi� dans Column Options)
 const SERVICE_TO_COL = {
   'SPAV':             'Regisseur_AV',
   'AMT':              'Regisseur_AMT',
-  'AMT lumi�re':      'AMT_Lumiere',      // Column ID sans accent
-  'R�gie des salles': 'Regis_des_salles'
+  'AMT lumière':      'AMT_Lumiere',      // Column ID sans accent
+  'Régie des salles': 'Regis_des_salles'
 };
+
+// Icônes par service
+const SERVICE_ICONS = {
+  'SPAV':             '🎧',
+  'AMT':              '🔨',
+  'AMT lumière':      '💡',
+  'Régie des salles': '🏢'
+};
+
+// Drapeaux par pays
+const COUNTRY_FLAGS = {
+  'France':'🇫🇷','fr':'🇫🇷',
+  'Allemagne':'🇩🇪','de':'🇩🇪','Germany':'🇩🇪',
+  'Belgique':'🇧🇪','be':'🇧🇪','Belgium':'🇧🇪',
+  'Suisse':'🇨🇭','ch':'🇨🇭','Switzerland':'🇨🇭',
+  'Luxembourg':'🇱🇺','lu':'🇱🇺',
+  'Espagne':'🇪🇸','es':'🇪🇸','Spain':'🇪🇸',
+  'Italie':'🇮🇹','it':'🇮🇹','Italy':'🇮🇹',
+  'pays-bas':'🇳🇱','nl':'🇳🇱','netherlands':'🇳🇱',
+  'royaume-uni':'🇬🇧','uk':'🇬🇧','gb':'🇬🇧',
+  'etats-unis':'🇺🇸','us':'🇺🇸','usa':'🇺🇸',
+  'canada':'🇨🇦','ca':'🇨🇦',
+  'japon':'🇯🇵','jp':'🇯🇵','japan':'🇯🇵',
+  'chine':'🇨🇳','cn':'🇨🇳','china':'🇨🇳',
+  'portugal':'🇵🇹','pt':'🇵🇹',
+  'autriche':'🇦🇹','at':'🇦🇹','austria':'🇦🇹',
+  'pologne':'🇵🇱','pl':'🇵🇱','poland':'🇵🇱',
+  'danemark':'🇩🇰','dk':'🇩🇰','denmark':'🇩🇰',
+  'suede':'🇸🇪','se':'🇸🇪','sweden':'🇸🇪',
+  'norvege':'🇳🇴','no':'🇳🇴','norway':'🇳🇴',
+  'finlande':'🇫🇮','fi':'🇫🇮','finland':'🇫🇮',
+  'grece':'🇬🇷','gr':'🇬🇷','greece':'🇬🇷',
+  'maroc':'🇲🇦','ma':'🇲🇦','morocco':'🇲🇦',
+  'bresil':'🇧🇷','br':'🇧🇷','brazil':'🇧🇷',
+  'mexique':'🇲🇽','mx':'🇲🇽','mexico':'🇲🇽',
+  'argentine':'🇦🇷','ar':'🇦🇷','argentina':'🇦🇷',
+  'russie':'🇷🇺','ru':'🇷🇺','russia':'🇷🇺',
+  'coree':'🇰🇷','kr':'🇰🇷','korea':'🇰🇷',
+  'australie':'🇦🇺','au':'🇦🇺','australia':'🇦🇺',
+  'inde':'🇮🇳','in':'🇮🇳','india':'🇮🇳',
+  'turquie':'🇹🇷','tr':'🇹🇷','turkey':'🇹🇷',
+  'maroc':'🇲🇦','ma':'🇲🇦','morocco':'🇲🇦',
+  'bresil':'🇧🇷','br':'🇧🇷','brazil':'🇧🇷',
+  'mexique':'🇲🇽','mx':'🇲🇽','mexico':'🇲🇽',
+  'argentine':'🇦🇷','ar':'🇦🇷','argentina':'🇦🇷',
+  'russie':'🇷🇺','ru':'🇷🇺','russia':'🇷🇺',
+  'coree':'🇰🇷','kr':'🇰🇷','korea':'🇰🇷',
+  'australie':'🇦🇺','au':'🇦🇺','australia':'🇦🇺',
+  'inde':'🇮🇳','in':'🇮🇳','india':'🇮🇳',
+  'turquie':'🇹🇷','tr':'🇹🇷','turkey':'🇹🇷'
+};
+
+function resolvePaysToString(paysVal) {
+  if (!paysVal || paysVal === 0) return null;
+  // Si c'est un ID numérique, chercher dans paysMapping
+  const num = Number(paysVal);
+  if (!isNaN(num) && num > 0 && paysMapping[num]) return paysMapping[num];
+  // Sinon c'est déjà un texte
+  return String(paysVal).trim() || null;
+}
+
+function flagFromPaysStr(paysStr) {
+  if (!paysStr) return null;
+  const s = paysStr.toLowerCase().trim();
+  if (COUNTRY_FLAGS[s]) return COUNTRY_FLAGS[s];
+  // Correspondance exacte sur clé courte (2 lettres)
+  for (const [key, flag] of Object.entries(COUNTRY_FLAGS)) {
+    if (key.length === 2 && s === key) return flag;
+  }
+  // Correspondance partielle sur clé longue
+  for (const [key, flag] of Object.entries(COUNTRY_FLAGS)) {
+    if (key.length > 2 && s.includes(key)) return flag;
+  }
+  return null;
+}
+
+function getFlagForLieu(lieuId) {
+  if (!lieuId || lieuId === 'PRET_GROUP') return '📦';
+
+  // 1. Chercher le pays directement depuis les expos (colonne $Pays de Liste_des_Expo)
+  //    $Pays peut être un texte (formule $Musee.Pays.Pays) ou un ID numérique
+  const expoForLieu = expos.find(e => String(e.Musee) === String(lieuId) && e.Pays && e.Pays !== 0);
+  if (expoForLieu) {
+    const paysResolved = resolvePaysToString(expoForLieu.Pays);
+    const flag = flagFromPaysStr(paysResolved);
+    if (flag) return flag;
+  }
+
+  // 2. Fallback : chercher via lieuxObj (chargé depuis Lieux_constellation)
+  const lieu = lieuxObj[lieuId];
+  if (!lieu) return '🏛️';
+
+  if (lieu.pays) {
+    const paysResolved = resolvePaysToString(lieu.pays);
+    const flag = flagFromPaysStr(paysResolved);
+    if (flag) return flag;
+  }
+
+  // 3. Dernier recours : chercher dans le nom du lieu
+  if (lieu.nom) {
+    const flag = flagFromPaysStr(lieu.nom);
+    if (flag) return flag;
+  }
+
+  return '🏛️';
+}
 
 function getColorByCode(code) {
   if (!code) return COLOR_PALETTE[0];
@@ -200,6 +323,7 @@ function getColorByCode(code) {
 
 // ==================== STATE ====================
 let expos = [], lieuxObj = {}, personnel = {}, feries = [];
+let paysMapping = {}; // ID pays -> nom du pays (chargé depuis la table Pays)
 // Service(s) assign�(s) � chaque agent (colonne Personnel.$Service)
 let personnelServices = {};
 let allServicesList = new Set(SERVICES_LIST);
@@ -271,7 +395,7 @@ function parseServicesField(val) {
   return [val];
 }
 
-// Normalisation "tol�rante" pour comparer SPAV/AMT/AMT lumi�re/R�gie des salles.
+// Normalisation "tolérante" pour comparer SPAV/AMT/AMT lumière/Régie des salles.
 // IMPORTANT : on ne supprime pas les accents c�t� affichage, uniquement pour la comparaison.
 function normalizeServiceForMatch(s) {
   return String(s || '')
@@ -287,10 +411,30 @@ async function loadData() {
   try {
     personnel = {};
     personnelServices = {};
+    
+    // Charger d'abord la table Pays pour le mapping (variable globale)
+    paysMapping = {};
+    try {
+      const tPays = await grist.docApi.fetchTable('Pays');
+      rowsFromTable(tPays).forEach(r => {
+        paysMapping[r.id] = r.Pays; // ID -> nom du pays
+      });
+    } catch(e) {}
+
     try {
       const tLieux = await grist.docApi.fetchTable(TABLE_LIEUX);
       rowsFromTable(tLieux).forEach(r => {
-        lieuxObj[r.id] = { nom: r.Nom || r.Musee || ('Lieu #' + r.id), pays: r.Pays };
+        // r.Pays est une référence, généralement [ID, "value"]
+        let pays = r.Pays;
+        
+        // Si c'est un tableau [ID, "value"]
+        if (Array.isArray(pays) && pays.length > 0) {
+          const paysId = pays[0];
+          // Chercher dans le mapping
+          pays = paysMapping[paysId] || (pays.length > 1 ? pays[1] : pays[0]);
+        }
+        
+        lieuxObj[r.id] = { nom: r.Nom || r.Musee || ('Lieu #' + r.id), pays: pays };
       });
     } catch(e) {}
 
@@ -315,7 +459,7 @@ async function loadData() {
         feries = tFeries[dCol].map((v, i) => ({
           d:    fixDate(v),
           pays: parsePays(tFeries['Pays'] ? tFeries['Pays'][i] : null),
-          nom:  tFeries['Nom']  ? tFeries['Nom'][i]  : 'Jour F�ri�'
+          nom:  tFeries['Nom']  ? tFeries['Nom'][i]  : 'Jour Férié'
         })).filter(f => f.d);
       }
     } catch(e) {}
@@ -349,7 +493,7 @@ async function loadData() {
     setTimeout(() => goToday(), 100);
   } catch(e) {
     document.getElementById('gantt-root').innerHTML =
-      `<div class="no-data"><h2>?? Erreur</h2><p>${e.message}</p></div>`;
+      `<div class="no-data"><h2>⚠️ Erreur</h2><p>${e.message}</p></div>`;
   }
 }
 
@@ -378,7 +522,7 @@ function populateFilters() {
 
   document.getElementById('btn-hide-past').classList.toggle('btn-active', hidePast);
   document.getElementById('btn-hide-past').textContent =
-    hidePast ? '?? TERMIN�ES MASQU�ES ?' : '?? MASQUER TERMIN�ES';
+    hidePast ? '🧹 TERMINÉES MASQUÉES ✓' : '🧹 MASQUER TERMINÉES';
   document.getElementById('btn-workload').classList.toggle('btn-active', showWorkload);
 }
 
@@ -494,9 +638,13 @@ function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
 function isFerieGlobal(d) {
   return feries.some(f => {
     if (f.d.toDateString() !== d.toDateString()) return false;
-    return !f.pays || f.pays === 0 ||
+    // Traite pays vide OU "France" comme jours fériés globaux
+    const paysStr = String(f.pays || '').toLowerCase().trim();
+    const isFranceOrEmpty = !f.pays || f.pays === 0 ||
            (Array.isArray(f.pays) && f.pays.length === 0) ||
-           String(f.pays).trim() === '';
+           String(f.pays).trim() === '' ||
+           paysStr === 'france' || paysStr === 'fr';
+    return isFranceOrEmpty;
   });
 }
 
@@ -548,7 +696,7 @@ function render() {
   const root     = document.getElementById('gantt-root');
   const filtered = getFilteredExpos();
   if (filtered.length === 0)
-    return root.innerHTML = '<div class="no-data"><h2>?? AUCUNE EXPOSITION</h2></div>';
+    return root.innerHTML = '<div class="no-data"><h2>📭 AUCUNE EXPOSITION</h2></div>';
 
   let minD = Infinity, maxD = -Infinity;
   filtered.forEach(e => {
@@ -628,7 +776,7 @@ function render() {
   days.forEach(({ d, isWE, isGlobalFer, isToday }) => {
     let cls = 'day-cell';
     if (isToday)          cls += ' today-col';
-    else if (isGlobalFer) cls += ' ferie';
+    else if (isGlobalFer) cls += ' ferie-global';
     else if (isWE)        cls += ' weekend';
     const lbl = dayWidth >= 16
       ? `<b>${d.getDate()}</b><small>${JOURS[d.getDay()]}</small>`
@@ -656,7 +804,7 @@ function render() {
 
   days.forEach(({ isWE, isGlobalFer, i }) => {
     if (isGlobalFer || isWE)
-      html += `<div class="grid-col ${isGlobalFer ? 'ferie' : 'weekend'}"
+      html += `<div class="grid-col ${isGlobalFer ? 'ferie-global' : 'weekend'}"
         style="left:${i * dayWidth}px; width:${dayWidth}px;"></div>`;
   });
 
@@ -668,9 +816,10 @@ function render() {
     const group = groups[gKey];
     const col   = collapsedGroups[gKey];
 
+    const flag = group.isPret ? '📦' : getFlagForLieu(gKey);
     html += `<div class="group-header" onclick="toggleGroup('${gKey}')">
       <div class="sticky-text">
-        ${col ? '?' : '?'} ${group.isPret ? '??' : '???'} ${group.name}
+        ${col ? '▶' : '▼'} <span class="group-flag">${flag}</span> ${group.name}
         <span class="group-count">${group.expos.length}</span>
       </div>
     </div>`;
@@ -683,7 +832,7 @@ function render() {
         if (lf)
           html += `<div class="ferie-local-bg"
             style="left:${i * dayWidth}px; width:${dayWidth}px;"
-            title="${lf.nom || 'F�ri� local'}"></div>`;
+            title="${lf.nom || 'Férié local'}"></div>`;
       });
 
       group.expos.forEach(expo => {
@@ -705,7 +854,7 @@ function render() {
             html += `<div class="bar bar-montage"
               style="left:${lx}px; width:${wx}px; background:${color.dark};"
               onmouseenter="showTooltip(event,${expo.id})" onmouseleave="hideTooltip()"
-              onclick="openEdit(${expo.id})">?? Montage ${badgesHtml}</div>`;
+              onclick="openEdit(${expo.id})">🔧 Montage ${badgesHtml}</div>`;
           }
           if (dem) {
             const lx = daysBetween(rangeStart, dem.start) * dayWidth;
@@ -713,7 +862,7 @@ function render() {
             html += `<div class="bar bar-montage"
               style="left:${lx}px; width:${wx}px; background:${color.dark};"
               onmouseenter="showTooltip(event,${expo.id})" onmouseleave="hideTooltip()"
-              onclick="openEdit(${expo.id})">?? D�montage ${badgesHtml}</div>`;
+              onclick="openEdit(${expo.id})">📦 Démontage ${badgesHtml}</div>`;
           }
         }
         if (v && f) {
@@ -723,7 +872,7 @@ function render() {
             style="left:${lx}px; width:${wx}px; background:${color.light}; color:#2d3436;"
             onmouseenter="showTooltip(event,${expo.id})" onmouseleave="hideTooltip()"
             onclick="openEdit(${expo.id})">
-            ${group.isPret ? '?? Pr�t' : '?? ' + (expo.Nom_de_l_exposition || 'Expo')}
+            ${group.isPret ? '📦 Prêt' : '🎨 ' + (expo.Nom_de_l_exposition || 'Expo')}
             ${badgesHtml}</div>`;
         }
         html += `</div>`;
@@ -768,26 +917,25 @@ function showTooltip(e, id) {
   const svcs = getServices(expo).join(', ');
 
   let equipeHtml = '';
-  if (expo.Regisseur_AV)     equipeHtml += `<div><b>?? SPAV :</b> ${getPersonName(expo.Regisseur_AV)}</div>`;
-  if (expo.Regisseur_AMT)    equipeHtml += `<div><b>?? AMT :</b> ${getPersonName(expo.Regisseur_AMT)}</div>`;
-  if (expo.AMT_Lumiere)      equipeHtml += `<div><b>?? Lumi�re :</b> ${getPersonName(expo.AMT_Lumiere)}</div>`;
-  if (expo.Regis_des_salles) equipeHtml += `<div><b>?? Salles :</b> ${getPersonName(expo.Regis_des_salles)}</div>`;
-  if (!equipeHtml) equipeHtml = `<div><i>Aucun agent assign�</i></div>`;
+  if (expo.Regisseur_AV)     equipeHtml += `<div>🎧 SPAV : ${getPersonName(expo.Regisseur_AV)}</div>`;
+  if (expo.Regisseur_AMT)    equipeHtml += `<div>🔨 AMT : ${getPersonName(expo.Regisseur_AMT)}</div>`;
+  if (expo.AMT_Lumiere)      equipeHtml += `<div>💡 Lumière : ${getPersonName(expo.AMT_Lumiere)}</div>`;
+  if (expo.Regis_des_salles) equipeHtml += `<div>🏢 Salles : ${getPersonName(expo.Regis_des_salles)}</div>`;
+  if (!equipeHtml) equipeHtml = `<div><i>Aucun agent assigné</i></div>`;
 
   const tt = document.getElementById('tooltip');
   tt.innerHTML = `
     <b class="title" style="color:${color}">${expo.Nom_de_l_exposition || 'Sans nom'}</b>
-    <div><b>?? Lieu :</b> ${getLieuName(expo.Musee)}</div>
-    ${svcs ? `<div><b>??? Service(s) :</b> ${svcs}</div>` : ''}
+    <div>📍 ${getLieuName(expo.Musee)}</div>
+    ${svcs ? `<div>🏷️ ${svcs}</div>` : ''}
     <hr style="border:0; border-top:1px solid #555; margin:6px 0;">
     ${equipeHtml}
     ${(!expo.Pret && m)
       ? `<hr style="border:0; border-top:1px solid #555; margin:6px 0;">
-         <div><b>?? Montage :</b> ${fmtDate(m.start)} ? ${fmtDate(m.end)}</div>` : ''}
-    <div><b>?? ${expo.Pret ? 'Pr�t' : 'Expo'} :</b>
-      ${v ? fmtDate(v) + ' ? ' + fmtDate(f) : 'N/A'}</div>
+         <div>🔧 Montage : ${fmtDate(m.start)} → ${fmtDate(m.end)}</div>` : ''}
+    <div>🎨 ${expo.Pret ? 'Prêt' : 'Expo'} : ${v ? fmtDate(v) + ' → ' + fmtDate(f) : 'N/A'}</div>
     ${(!expo.Pret && dem)
-      ? `<div><b>?? D�montage :</b> ${fmtDate(dem.start)} ? ${fmtDate(dem.end)}</div>` : ''}
+      ? `<div>📦 Démontage : ${fmtDate(dem.start)} → ${fmtDate(dem.end)}</div>` : ''}
   `;
   tt.classList.add('visible');
   const x = Math.min(e.clientX + 15, window.innerWidth - 335);
@@ -821,17 +969,49 @@ function selectColor(hex) {
   });
 }
 
+function updateAgentSelectStates() {
+  const checkedSvcs = new Set(Array.from(document.querySelectorAll('.fm-svc-cb:checked'))
+    .map(cb => cb.value));
+  
+  document.querySelectorAll('.fm-agent-select').forEach(select => {
+    const svc = select.dataset.service;
+    const shouldEnable = checkedSvcs.has(svc);
+    select.disabled = !shouldEnable;
+    if (!shouldEnable) {
+      select.value = '';
+    }
+  });
+}
+
+function updateDefaultDates() {
+  const vernissageVal = document.getElementById('fm-v').value;
+  if (vernissageVal) {
+    // Si finissage est vide, le mettre au vernissage
+    if (!document.getElementById('fm-f').value) {
+      document.getElementById('fm-f').value = vernissageVal;
+    }
+    // Si fin démontage est vide, le mettre au vernissage
+    if (!document.getElementById('fm-fdm').value) {
+      document.getElementById('fm-fdm').value = vernissageVal;
+    }
+  }
+}
+
 function renderEditPanel(expo, currentColorCode) {
   const isNew = !expo;
 
   const lieuxOptions = Object.entries(lieuxObj)
-    .map(([id, l]) => `<option value="${id}"
-      ${expo && String(expo.Musee) === String(id) ? 'selected' : ''}>${l.nom}</option>`)
+    .map(([id, l]) => {
+      const flag = getFlagForLieu(id);
+      return `<option value="${id}"
+      ${expo && String(expo.Musee) === String(id) ? 'selected' : ''}>${flag} ${l.nom}</option>`;
+    })
     .sort((a, b) => a.localeCompare(b)).join('');
 
   const personnelOptions = (selected, svcWanted) => {
     const selectedStr = selected !== undefined && selected !== null ? String(selected) : '';
     const wantedNorm = svcWanted ? normalizeServiceForMatch(svcWanted) : null;
+    const icon = SERVICE_ICONS[svcWanted] || '👤';
 
     let entries = Object.entries(personnel).filter(([id]) => {
       if (selectedStr && String(id) === selectedStr) return true; // keep current selection
@@ -840,24 +1020,14 @@ function renderEditPanel(expo, currentColorCode) {
       return svcs.some(s => normalizeServiceForMatch(s) === wantedNorm);
     });
 
-    // Fallback: if no service mapping matched, avoid empty dropdown.
-    if (wantedNorm && entries.length === 0) entries = Object.entries(personnel);
-
     entries.sort((a, b) => a[1].localeCompare(b[1]));
-    return '<option value=""> </option>' +
+    return '<option value="">— Aucun —</option>' +
       entries.map(([id, nom]) => `<option value="${id}"
-        ${selectedStr && String(selectedStr) === String(id) ? 'selected' : ''}>${nom}</option>`).join('');
+        ${selectedStr && String(selectedStr) === String(id) ? 'selected' : ''}>${icon} ${nom}</option>`).join('');
   };
 
-  // Checkboxes services � depuis SERVICES_LIST, toujours visibles
+  // Checkboxes services  depuis SERVICES_LIST, toujours visibles
   const currentSvcs   = expo ? getServices(expo) : [];
-  const svcCheckboxes = SERVICES_LIST.map(s =>
-    `<label>
-      <input type="checkbox" class="fm-svc-cb" value="${s}"
-        ${currentSvcs.includes(s) ? 'checked' : ''}>
-      ${s}
-    </label>`
-  ).join('');
 
   const colorSwatches = COLOR_PALETTE.map(c =>
     `<div class="color-swatch ${c.dark === currentColorCode ? 'selected' : ''}"
@@ -865,8 +1035,17 @@ function renderEditPanel(expo, currentColorCode) {
       title="${c.name}" onclick="selectColor('${c.dark}')"></div>`
   ).join('');
 
+  // Après avoir rendu le HTML, attachez les écouteurs d'événements
+  setTimeout(() => {
+    document.querySelectorAll('.fm-svc-cb').forEach(cb => {
+      cb.addEventListener('change', updateAgentSelectStates);
+    });
+    document.getElementById('fm-v').addEventListener('change', updateDefaultDates);
+    updateAgentSelectStates();
+  }, 0);
+
   document.getElementById('edit-panel').innerHTML = `
-    <h2>${isNew ? '? Nouvelle exposition' : '?? Modifier l\'exposition'}</h2>
+    <h2>${isNew ? '➕ Nouvelle exposition' : '✏️ Modifier l\'exposition'}</h2>
     <div class="edit-grid">
 
       <div class="edit-row full">
@@ -892,36 +1071,50 @@ function renderEditPanel(expo, currentColorCode) {
           value="${expo ? fmtInputDate(expo.finissage) : ''}">
       </div>
       <div class="edit-row">
-        <label>D�but montage</label>
+        <label>Début montage</label>
         <input type="date" id="fm-dm"
           value="${expo ? fmtInputDate(expo.debut_date_montage) : ''}">
       </div>
       <div class="edit-row">
-        <label>Fin d�montage</label>
+        <label>Fin démontage</label>
         <input type="date" id="fm-fdm"
           value="${expo ? fmtInputDate(expo.fin_date_montage) : ''}">
       </div>
 
-      <div class="edit-row full">
-        <label>Services concern�s</label>
-        <div class="checkbox-group">${svcCheckboxes}</div>
+      <div class="edit-row service-row full">
+        <label style="flex: 0 0 auto;">
+          <input type="checkbox" class="fm-svc-cb" value="SPAV"
+            ${currentSvcs.includes('SPAV') ? 'checked' : ''}>
+          SPAV
+        </label>
+        <select id="fm-av" class="fm-agent-select" data-service="SPAV" disabled>${personnelOptions(expo ? expo.Regisseur_AV : '', 'SPAV')}</select>
       </div>
 
-      <div class="edit-row">
-        <label>R�gisseur AV (SPAV)</label>
-        <select id="fm-av">${personnelOptions(expo ? expo.Regisseur_AV : '', 'SPAV')}</select>
+      <div class="edit-row service-row full">
+        <label style="flex: 0 0 auto;">
+          <input type="checkbox" class="fm-svc-cb" value="AMT"
+            ${currentSvcs.includes('AMT') ? 'checked' : ''}>
+          AMT
+        </label>
+        <select id="fm-amt" class="fm-agent-select" data-service="AMT" disabled>${personnelOptions(expo ? expo.Regisseur_AMT : '', 'AMT')}</select>
       </div>
-      <div class="edit-row">
-        <label>R�gisseur AMT</label>
-        <select id="fm-amt">${personnelOptions(expo ? expo.Regisseur_AMT : '', 'AMT')}</select>
+
+      <div class="edit-row service-row full">
+        <label style="flex: 0 0 auto;">
+          <input type="checkbox" class="fm-svc-cb" value="AMT lumière"
+            ${currentSvcs.includes('AMT lumière') ? 'checked' : ''}>
+          AMT Lumière
+        </label>
+        <select id="fm-lumiere" class="fm-agent-select" data-service="AMT lumière" disabled>${personnelOptions(expo ? expo.AMT_Lumiere : '', 'AMT lumière')}</select>
       </div>
-      <div class="edit-row">
-        <label>AMT Lumi�re</label>
-        <select id="fm-lumiere">${personnelOptions(expo ? expo.AMT_Lumiere : '', 'AMT lumi�re')}</select>
-      </div>
-      <div class="edit-row">
-        <label>R�gie des salles</label>
-        <select id="fm-salles">${personnelOptions(expo ? expo.Regis_des_salles : '', 'R�gie des salles')}</select>
+
+      <div class="edit-row service-row full">
+        <label style="flex: 0 0 auto;">
+          <input type="checkbox" class="fm-svc-cb" value="Régie des salles"
+            ${currentSvcs.includes('Régie des salles') ? 'checked' : ''}>
+          Régie des salles
+        </label>
+        <select id="fm-salles" class="fm-agent-select" data-service="Régie des salles" disabled>${personnelOptions(expo ? expo.Regis_des_salles : '', 'Régie des salles')}</select>
       </div>
 
       <div class="edit-row full">
@@ -929,7 +1122,7 @@ function renderEditPanel(expo, currentColorCode) {
           <label style="background:none;">
             <input type="checkbox" id="fm-pret"
               ${expo && expo.Pret ? 'checked' : ''}>
-            Mat�riel en Pr�t (masque les montages)
+            Matériel en Prêt (masque les montages)
           </label>
         </div>
       </div>
@@ -944,11 +1137,11 @@ function renderEditPanel(expo, currentColorCode) {
     <div class="edit-actions">
       ${!isNew
         ? `<button class="btn btn-danger"
-             onclick="deleteExpo(${expo.id})">??? Supprimer</button>`
+             onclick="deleteExpo(${expo.id})">🗑️ Supprimer</button>`
         : ''}
       <button class="btn btn-today" onclick="closeEdit()">Annuler</button>
       <button class="btn btn-primary"
-        onclick="saveExpo(${isNew ? 'null' : expo.id})">?? Enregistrer</button>
+        onclick="saveExpo(${isNew ? 'null' : expo.id})">💾 Enregistrer</button>
     </div>
   `;
 }
@@ -978,7 +1171,7 @@ function getRecordFromForm() {
     record[key] = (!isNaN(parsed) && parsed > 0) ? parsed : 0;
   });
 
-  // Dates � uniquement si renseign�es
+  // Dates à uniquement si renseignées
   const dateFields = {
     vernissage:         document.getElementById('fm-v').value,
     finissage:          document.getElementById('fm-f').value,
@@ -1011,7 +1204,7 @@ async function saveExpo(id) {
 }
 
 async function deleteExpo(id) {
-  if (!confirm('Supprimer cette exposition ? Cette action est irr�versible.')) return;
+  if (!confirm('Supprimer cette exposition ? Cette action est irréversible.')) return;
   try {
     await grist.docApi.applyUserActions([['RemoveRecord', TABLE_EXPOS, id]]);
     closeEdit();
