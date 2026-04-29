@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Projector Geometry Optimizer</title>
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 0; margin: 0; background-color: #f9f9fa; color: #333; }
+
+        .tabs-bar {
+            display: flex;
+            background: #2d3e50;
+            padding: 0 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .tab-button {
+            padding: 14px 24px;
+            background: transparent;
+            color: #b0bec5;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-button:hover { color: white; background: rgba(255,255,255,0.05); }
+        .tab-button.active { color: white; border-bottom-color: #16b378; }
+
+        .tab-content { display: none; padding: 20px; }
+        .tab-content.active { display: block; }
+
+        .wrapper { display: flex; gap: 20px; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; }
+        .container { flex: 1; min-width: 350px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .infographie { flex: 1.2; min-width: 380px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+        h2 { font-size: 18px; margin-top: 0; color: #2d3e50; }
+        h3 { font-size: 13px; margin: 15px 0 5px 0; color: #555; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+        label { display: block; margin-top: 12px; font-weight: bold; font-size: 13px; color: #444; }
+        input[type=number], select {
+            width: 100%; padding: 7px; margin-top: 4px;
+            border: 1px solid #ccc; border-radius: 4px; font-size: 14px;
+        }
+        input[type=number]:focus, select:focus { outline: none; border-color: #16b378; }
+
+        .slider-wrapper { margin-top: 4px; }
+        .slider-wrapper input[type=range] {
+            width: 100%; margin: 0; padding: 0; cursor: pointer;
+            accent-color: #16b378;
+        }
+        .slider-labels { display: flex; justify-content: space-between; font-size: 11px; color: #999; }
+        .slider-value { text-align: center; font-size: 13px; font-weight: bold; color: #16b378; margin-top: 2px; }
+
+        .section-sep { border: none; border-top: 1px solid #eee; margin: 15px 0; }
+
+        .results { margin-top: 16px; padding: 14px; background: #eef7f4; border-radius: 6px; border: 1px solid #d1eadd; }
+        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+        .results p { margin: 4px 0; font-size: 13px; }
+        .results .full { grid-column: 1 / -1; }
+        .results strong { color: #d9534f; }
+        .results hr { border: none; border-top: 1px solid #c5e0d4; margin: 8px 0; grid-column: 1 / -1; }
+        .tag { font-size: 11px; color: #888; font-weight: normal; }
+
+        svg { width: 100%; height: auto; display: block; }
+        .legend { font-size: 11px; color: #888; text-align: center; margin-top: 4px; font-style: italic; }
+
+        .placeholder { text-align: center; padding: 60px 20px; color: #999; }
+        .highlight { background: #fffde7; padding: 2px 4px; border-radius: 3px; }
+
+        /* Animation des faisceaux */
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        .beam {
+            stroke-dasharray: 5 3;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        .beam-top { animation-delay: 0.2s; }
+        .beam-bottom { animation-delay: 0.4s; }
+    </style>
+</head>
+<body>
+
+<div class="tabs-bar">
+    <button class="tab-button active" onclick="switchTab('crop', this)">📐 Géométrie Projection</button>
+    <button class="tab-button" onclick="switchTab('outil2', this)">🔧 Outil 2</button>
+    <button class="tab-button" onclick="switchTab('outil3', this)">⚙️ Outil 3</button>
+</div>
+
+<!-- ONGLET 1 -->
+<div class="tab-content active" id="tab-crop">
+    <div class="wrapper">
+
+        <!-- PANNEAU GAUCHE -->
+        <div class="container">
+            <h2>Optimiseur de Géométrie</h2>
+
+            <label for="resolution">Résolution Native :</label>
+            <select id="resolution">
+                <option value="" disabled selected>Chargement...</option>
+            </select>
+
+            <label for="ratio">Throw Ratio :</label>
+            <input type="number" id="ratio" value="0.54" step="0.01" min="0.1">
+
+            <label for="distance_init">Distance Initiale (m) :</label>
+            <input type="number" id="distance_init" value="3" step="0.1" min="0.1">
+
+            <label for="hauteur_init">Hauteur Optique Initiale (m) :</label>
+            <input type="number" id="hauteur_init" value="1.5" step="0.05">
+
+            <label for="pitch">Angle de Piqué (°) :</label>
+            <input type="number" id="pitch" value="15" step="0.1">
+
+            <label for="lensshift">Lens Shift Vertical (%) :</label>
+            <div class="slider-wrapper">
+                <input type="range" id="lensshift" min="-150" max="150" value="-24" step="1">
+                <div class="slider-labels"><span>-150%</span><span>0%</span><span>+150%</span></div>
+                <div class="slider-value" id="lensshift_val">-24%</div>
+            </div>
+
+            <hr class="section-sep">
+
+            <div class="results" id="resultsBox">
+                <p style="font-weight:bold; margin-bottom:8px; font-size:13px; color:#2d3e50;">📊 Résultats Physiques</p>
+                <div class="results-grid">
+                    <p>Nouvelle Distance :<br><span id="d_new">—</span> <span class="tag">m</span></p>
+                    <p>Nouvelle Hauteur VP :<br><span id="h_vp_new">—</span> <span class="tag">m</span></p>
+                    <p>Décalage Vertical :<br><span id="decalage">—</span> <span class="tag">m</span></p>
+                </div>
+
+                <hr>
+
+                <p style="font-weight:bold; margin:12px 0 8px 0; font-size:13px; color:#2d3e50;">🎯 Performance Optique</p>
+                <div class="results-grid">
+                    <p>Résolution Utile :<br><span id="res_utile">— × —</span> <span class="tag">px</span></p>
+                    <p>Crop :<br><strong><span id="crop_percent">—</span>%</strong></p>
+                    <p>Largeur Trapèze Haut :<br><span id="w_top">—</span> <span class="tag">m</span></p>
+                    <p>Largeur Trapèze Bas :<br><span id="w_bot">—</span> <span class="tag">m</span></p>
+                    <p>Hauteur Trapèze :<br><span id="h_trap">—</span> <span class="tag">m</span></p>
+                    <p>Bas Image/Sol :<br><span id="bas_sol">—</span> <span class="tag">m</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANNEAU DROIT : INFOGRAPHIE -->
+        <div class="infographie">
+            <h2>Visualisation 3D</h2>
+
+            <h3>Vue de face — Image projetée</h3>
+            <svg viewBox="0 0 320 210" id="svgDeformed">
+                <defs>
+                    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L6,3 L0,6 Z" fill="#555"/>
+                    </marker>
+                    <marker id="arrowW" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L6,3 L0,6 Z" fill="#2980b9"/>
+                    </marker>
+                </defs>
+                <rect x="0" y="0" width="320" height="210" fill="#f5f5f5"/>
+                <polygon id="trapeze" points="80,30 240,30 270,180 50,180" fill="#ffd6d6" stroke="#d9534f" stroke-width="2"/>
+                <rect id="rectInscrit" x="80" y="30" width="160" height="100" fill="#16b378" fill-opacity="0.55" stroke="#0d7a4f" stroke-width="2"/>
+                <text id="txtZoneUtile" x="160" y="82" text-anchor="middle" fill="white" font-size="11" font-weight="bold">Zone utile</text>
+                <line id="coteHautG" x1="80" y1="20" x2="240" y2="20" stroke="#2980b9" stroke-width="1.2" marker-start="url(#arrowW)" marker-end="url(#arrowW)"/>
+                <text id="coteHautTxt" x="160" y="15" text-anchor="middle" fill="#2980b9" font-size="10"></text>
+                <line id="coteBas" x1="50" y1="192" x2="270" y2="192" stroke="#d9534f" stroke-width="1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                <text id="coteBasTxt" x="160" y="205" text-anchor="middle" fill="#d9534f" font-size="10"></text>
+                <line id="coteH" x1="290" y1="30" x2="290" y2="180" stroke="#555" stroke-width="1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                <text id="coteHTxt" x="310" y="110" text-anchor="middle" fill="#555" font-size="10" transform="rotate(90,310,110)"></text>
+            </svg>
+            <p class="legend">Rouge : image projetée déformée | Vert : zone exploitable après correction</p>
+
+            <h3 style="margin-top:20px;">Vue latérale — Faisceaux optiques</h3>
+            <svg viewBox="0 0 400 260" id="svgCoupe">
+                <defs>
+                    <marker id="arrowC" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L6,3 L0,6 Z" fill="#555"/>
+                    </marker>
+                    <marker id="arrowCB" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L6,3 L0,6 Z" fill="#2d3e50"/>
+                    </marker>
+                    <marker id="arrowCG" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L6,3 L0,6 Z" fill="#16b378"/>
+                    </marker>
+                </defs>
+
+                <!-- Sol -->
+                <line x1="0" y1="240" x2="400" y2="240" stroke="#333" stroke-width="2"/>
+                <text x="200" y="255" text-anchor="middle" fill="#333" font-size="11">SOL</text>
+
+                <!-- Mur -->
+                <rect x="340" y="10" width="12" height="230" fill="#f0f0f0" stroke="#999" stroke-width="1"/>
+                <text x="346" y="8" text-anchor="middle" fill="#777" font-size="10">MUR</text>
+
+                <!-- VP (rectangle) -->
+                <rect id="vpRect" x="30" y="100" width="28" height="18" fill="#2d3e50" rx="3"/>
+                <text id="vpLabel" x="44" y="132" text-anchor="middle" fill="white" font-size="9">VP</text>
+
+                <!-- Axe optique -->
+                <line id="axeOptique" x1="44" y1="109" x2="341" y2="109" stroke="#bbb" stroke-width="1" stroke-dasharray="3 3"/>
+                <text x="150" y="105" fill="#bbb" font-size="9">axe optique</text>
+
+                <!-- Image projetée (trapèze rouge) -->
+                <polygon id="imageProjetee" points="341,60 341,180 341,180 341,60" fill="#ffd6d6" fill-opacity="0.7" stroke="#d9534f" stroke-width="2"/>
+
+                <!-- Image corrigée (rectangle vert) -->
+                <rect id="imageCorrigee" x="341" y="80" width="0" height="80" fill="#16b378" fill-opacity="0.55" stroke="#0d7a4f" stroke-width="2"/>
+
+                <!-- Faisceaux optiques animés -->
+                <line id="rayHaut" class="beam beam-top" x1="44" y1="109" x2="341" y2="60" stroke="#d9534f" stroke-width="1.8"/>
+                <line id="rayBas" class="beam beam-bottom" x1="44" y1="109" x2="341" y2="180" stroke="#d9534f" stroke-width="1.8"/>
+
+                <!-- Cotes -->
+                <line id="coteDistTop" x1="44" y1="248" x2="341" y2="248" stroke="#2d3e50" stroke-width="1.2" marker-start="url(#arrowCB)" marker-end="url(#arrowCB)"/>
+                <text id="coteDistTxt" x="192" y="243" text-anchor="middle" fill="#2d3e50" font-size="10"></text>
+
+                <line id="coteVpH_line" x1="15" y1="109" x2="15" y2="240" stroke="#888" stroke-width="1.2" marker-start="url(#arrowC)" marker-end="url(#arrowC)"/>
+                <text id="coteVpHTxt" x="10" y="175" text-anchor="middle" fill="#888" font-size="9" transform="rotate(-90,10,175)"></text>
+
+                <line id="coteImgH_line" x1="360" y1="60" x2="360" y2="180" stroke="#16b378" stroke-width="1.2" marker-start="url(#arrowCG)" marker-end="url(#arrowCG)"/>
+                <text id="coteImgHTxt" x="385" y="120" text-anchor="middle" fill="#16b378" font-size="10" transform="rotate(90,385,120)"></text>
+
+                <line id="coteBasSol_line" x1="360" y1="180" x2="360" y2="240" stroke="#e67e22" stroke-width="1.2" marker-start="url(#arrowC)" marker-end="url(#arrowC)"/>
+                <text id="coteBasSolTxt" x="385" y="210" text-anchor="middle" fill="#e67e22" font-size="10" transform="rotate(90,385,210)"></text>
+            </svg>
+            <p class="legend">Rouge : image projetée | Vert : image corrigée | Faisceaux optiques animés</p>
+        </div>
+    </div>
+</div>
+
+<!-- ONGLET 2 -->
+<div class="tab-content" id="tab-outil2">
+    <div class="placeholder">
+        <h2>🔧 Outil 2</h2>
+        <p>À venir.</p>
+    </div>
+</div>
+
+<!-- ONGLET 3 -->
+<div class="tab-content" id="tab-outil3">
+    <div class="placeholder">
+        <h2>⚙️ Outil 3</h2>
+        <p>À venir.</p>
+    </div>
+</div>
+
+<script>
+    let resolutionsData = [];
+
+    function switchTab(tabName, btn) {
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
+        document.getElementById('tab-' + tabName).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    async function initWidget() {
+        try {
+            if (typeof grist !== 'undefined') {
+                await grist.ready({ requiredAccess: 'full' });
+                const tables = await grist.docApi.listTables();
+                if (tables.includes('Resolution_materiel')) {
+                    const table = await grist.docApi.fetchTable('Resolution_materiel');
+                    const select = document.getElementById('resolution');
+                    select.innerHTML = '';
+                    const def = document.createElement('option');
+                    def.value = ""; def.disabled = true; def.selected = true;
+                    def.textContent = "-- Choisir --";
+                    select.appendChild(def);
+
+                    for (let i = 0; i < table.id.length; i++) {
+                        let nom = table['Nom_resolution'][i];
+                        let w = table['L_px'][i];
+                        let h = table['H_px'][i];
+                        if (nom && w && h) {
+                            resolutionsData.push({ nom, w, h });
+                            let opt = document.createElement('option');
+                            opt.value = resolutionsData.length - 1;
+                            opt.textContent = `${nom} (${w}×${h})`;
+                            select.appendChild(opt);
+                        }
+                    }
+                    if (resolutionsData.length > 0) {
+                        select.value = "0";
+                        calculer();
+                    }
+                }
+            } else {
+                // Mode demo sans Grist
+                resolutionsData = [{ nom: 'WUXGA', w: 1920, h: 1200 }];
+                const select = document.getElementById('resolution');
+                select.innerHTML = '<option value="0">WUXGA (1920×1200)</option>';
+                calculer();
+            }
+        } catch(e) {
+            console.error(e);
+        }
+
+        // Listeners temps réel
+        ['pitch','ratio','distance_init','hauteur_init','resolution'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calculer);
+        });
+        document.getElementById('lensshift').addEventListener('input', function() {
+            document.getElementById('lensshift_val').textContent = this.value + '%';
+            calculer();
+        });
+    }
+
+    window.addEventListener('load', initWidget);
+
+    function calculer() {
+        const pitchDeg = parseFloat(document.getElementById('pitch').value) || 0;
+        const tr = parseFloat(document.getElementById('ratio').value) || 0.54;
+        const D_init = parseFloat(document.getElementById('distance_init').value) || 3;
+        const H_vp_init = parseFloat(document.getElementById('hauteur_init').value) || 1.5;
+        const lensShiftPerc = parseFloat(document.getElementById('lensshift').value) || 0;
+        const resIndex = document.getElementById('resolution').value;
+
+        if (resIndex === "" || resolutionsData.length === 0) return;
+        const res = resolutionsData[resIndex];
+        const L_px = res.w;
+        const H_px = res.h;
+        const AR = L_px / H_px;
+
+        // Conversion en radians
+        const θ = pitchDeg * Math.PI / 180;
+
+        // 1. Calculs de référence (image droite)
+        const W_ref = D_init / tr;
+        const H_ref = W_ref / AR;
+        const LS_abs = (lensShiftPerc / 100) * H_ref;
+
+        // 2. Calcul de la nouvelle distance D_new
+        const D_base = D_init / Math.cos(θ);
+        const D_new = D_base * Math.cos(θ); // Approximation pour garder W_ref au centre
+
+        // 3. Calcul des largeurs du trapèze
+        const α = Math.atan((H_ref/2) / D_init); // Demi-angle vertical
+        const W_top = W_ref * (1 - Math.tan(θ) * Math.tan(α)) / (1 + Math.tan(θ) * Math.tan(α));
+        const W_bot = W_ref * (1 + Math.tan(θ) * Math.tan(α)) / (1 - Math.tan(θ) * Math.tan(α));
+
+        // 4. Calcul de la nouvelle hauteur du VP
+        const H_trap = H_ref / Math.cos(θ);
+        const Y_center_trap = D_new * Math.tan(θ);
+        const LS_abs_new = (lensShiftPerc / 100) * H_ref;
+        const H_vp_new = H_vp_init - Y_center_trap - LS_abs_new;
+
+        // 5. Calcul du crop
+        const H_utile = H_ref * (W_bot / W_ref + W_top / W_ref) / 2;
+        const L_px_utile = Math.round(L_px * (W_ref / W_bot));
+        const H_px_utile = Math.round(H_px * (H_utile / H_trap));
+        const crop_percent = (1 - (L_px_utile * H_px_utile) / (L_px * H_px)) * 100;
+
+        // 6. Position de l'image sur le mur
+        const centre_mur_y = H_vp_new + LS_abs_new * Math.cos(θ);
+        const img_top_mur = centre_mur_y + H_ref/2;
+        const img_bot_mur = centre_mur_y - H_ref/2;
+        const bas_sol = img_bot_mur;
+
+        // --- AFFICHAGE RÉSULTATS ---
+        document.getElementById('d_new').textContent = D_new.toFixed(2);
+        document.getElementById('h_vp_new').textContent = H_vp_new.toFixed(2);
+        document.getElementById('decalage').textContent = (H_vp_init - H_vp_new).toFixed(2);
+
+        document.getElementById('res_utile').textContent = `${L_px_utile} × ${H_px_utile}`;
+        document.getElementById('crop_percent').textContent = crop_percent.toFixed(1);
+        document.getElementById('w_top').textContent = W_top.toFixed(2);
+        document.getElementById('w_bot').textContent = W_bot.toFixed(2);
+        document.getElementById('h_trap').textContent = H_trap.toFixed(2);
+        document.getElementById('bas_sol').textContent = bas_sol.toFixed(2);
+
+        // --- SVG VUE DE FACE ---
+        const cx = 160, yTop = 35, yBot = 185;
+        const halfBot = 120;
+        const halfTop = halfBot * (W_top / W_bot);
+
+        document.getElementById('trapeze').setAttribute('points',
+            `${cx-halfTop},${yTop} ${cx+halfTop},${yTop} ${cx+halfBot},${yBot} ${cx-halfBot},${yBot}`);
+
+        const rectW = halfTop * 2;
+        const rectH = Math.min((rectW / AR), yBot - yTop);
+        const ri = document.getElementById('rectInscrit');
+        ri.setAttribute('x', cx - rectW/2);
+        ri.setAttribute('y', yTop);
+        ri.setAttribute('width', rectW);
+        ri.setAttribute('height', rectH);
+        document.getElementById('txtZoneUtile').setAttribute('x', cx);
+        document.getElementById('txtZoneUtile').setAttribute('y', yTop + rectH/2 + 4);
+
+        document.getElementById('coteHautTxt').textContent = W_top.toFixed(2) + ' m';
+        document.getElementById('coteBasTxt').textContent = W_bot.toFixed(2) + ' m';
+        document.getElementById('coteHTxt').textContent = H_trap.toFixed(2) + ' m';
+
+        // --- SVG VUE LATÉRALE ---
+        const svgH = 240;
+        const svgMurX = 341;
+        const svgVPX = 44;
+        const echelle = 50;
+
+        // Position VP
+        const vpY_svg = svgH - H_vp_new * echelle;
+        document.getElementById('vpRect').setAttribute('y', vpY_svg - 9);
+        document.getElementById('vpLabel').setAttribute('y', vpY_svg + 22);
+
+        // Axe optique
+        document.getElementById('axeOptique').setAttribute('y1', vpY_svg);
+        document.getElementById('axeOptique').setAttribute('y2', vpY_svg);
+
+        // Image projetée (trapèze rouge)
+        const centreMurSVG = vpY_svg - LS_abs_new * echelle;
+        const halfHmurSVG = (H_trap / 2) * echelle;
+        const imgTopSVG = centreMurSVG - halfHmurSVG;
+        const imgBotSVG = centreMurSVG + halfHmurSVG;
+
+        // Points du trapèze projeté (largeur variable)
+        const halfTopSVG = (W_top / 2) * echelle;
+        const halfBotSVG = (W_bot / 2) * echelle;
+
+        document.getElementById('imageProjetee').setAttribute('points',
+            `${svgMurX-halfTopSVG},${imgTopSVG} ${svgMurX+halfTopSVG},${imgTopSVG} ${svgMurX+halfBotSVG},${imgBotSVG} ${svgMurX-halfBotSVG},${imgBotSVG}`);
+
+        // Image corrigée (rectangle vert)
+        const halfWcorrSVG = (W_ref / 2) * echelle;
+        const halfHcorrSVG = (H_ref / 2) * echelle;
+        const corrTopSVG = centreMurSVG - halfHcorrSVG;
+        const corrBotSVG = centreMurSVG + halfHcorrSVG;
+
+        document.getElementById('imageCorrigee').setAttribute('x', svgMurX - halfWcorrSVG);
+        document.getElementById('imageCorrigee').setAttribute('y', corrTopSVG);
+        document.getElementById('imageCorrigee').setAttribute('width', halfWcorrSVG * 2);
+        document.getElementById('imageCorrigee').setAttribute('height', halfHcorrSVG * 2);
+
+        // Faisceaux optiques
+        document.getElementById('rayHaut').setAttribute('y1', vpY_svg);
+        document.getElementById('rayHaut').setAttribute('y2', imgTopSVG);
+        document.getElementById('rayBas').setAttribute('y1', vpY_svg);
+        document.getElementById('rayBas').setAttribute('y2', imgBotSVG);
+
+        // Cotes
+        document.getElementById('coteDistTxt').textContent = D_new.toFixed(1) + ' m';
+        document.getElementById('coteVpHTxt').textContent = H_vp_new.toFixed(2) + ' m';
+        document.getElementById('coteImgHTxt').textContent = H_ref.toFixed(2) + ' m';
+        document.getElementById('coteBasSolTxt').textContent = bas_sol.toFixed(2) + ' m';
+    }
+</script>
+</body>
+</html>
